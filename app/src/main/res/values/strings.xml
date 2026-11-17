@@ -144,4 +144,21 @@
     <string name="msg_use_settings">Operazione non consentita da qui: aperte le info app</string>
     <string name="drawer_dev">Opzioni sviluppatore</string>
     <string name="drawer_dev_show">Scorciatoia Opzioni sviluppatore</string>
+    <string name="sec_autogrant">ADB interno</string>
+    <string name="autogrant_run">Concedi tutti i permessi</string>
+    <string name="autogrant_busy">Connessione ad ADB interno…</string>
+    <string name="autogrant_hint">Serve Debug USB attivo e ADB su rete (porta 5555). Alla prima richiesta accetta la finestra di debug con «Consenti sempre».</string>
+    <string name="autogrant_err_connect">ADB non raggiungibile su 127.0.0.1:5555. Attiva Debug USB e ADB su rete nelle opzioni sviluppatore (il debug wireless Android 11+ non è supportato).</string>
+    <string name="autogrant_err_auth">Autorizzazione non concessa: accetta la finestra di debug con «Consenti sempre» e riprova.</string>
+    <string name="autogrant_fail">No</string>
+    <string name="grant_secure">Modifica impostazioni protette</string>
+    <string name="grant_location">Posizione</string>
+    <string name="grant_overlay">Sovrapposizione</string>
+    <string name="grant_write">Modifica impostazioni di sistema</string>
+    <string name="grant_usage">Accesso all\'uso app</string>
+    <string name="grant_listener">Accesso alle notifiche (player)</string>
+    <string name="grant_freeform">Finestre libere</string>
+    <string name="grant_battery">Esclusione risparmio batteria</string>
+    <string name="grant_notif">Notifiche</string>
+    <string name="grant_devopts">Opzioni sviluppatore attive</string>
 </resources>

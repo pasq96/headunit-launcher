@@ -70,6 +70,8 @@ import com.pasq96.headunit.data.Panels
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.data.ThemeMode
 import com.pasq96.headunit.embed.Embedder
+import com.pasq96.headunit.system.InternalAdb
+import com.pasq96.headunit.system.PermissionGranter
 import com.pasq96.headunit.tools.CarTools
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -460,6 +462,22 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 StepRow(str(R.string.auto_play_delay), "${p.autoPlayDelaySec} s", accent, { vm.set(K.playDelay, p.autoPlayDelaySec - 1) }, { vm.set(K.playDelay, p.autoPlayDelaySec + 1) }, icon = G.CLOCK)
                 ToggleRow(str(R.string.resume_on_wake), p.resumeOnWake, accent, icon = G.POWER) { vm.set(K.resume, it) }
                 StepRow(str(R.string.wake_delay), "${p.wakeDelaySec} s", accent, { vm.set(K.wakeDelay, p.wakeDelaySec - 1) }, { vm.set(K.wakeDelay, p.wakeDelaySec + 1) }, icon = G.CLOCK)
+            }
+            Section(str(R.string.sec_autogrant), accent, G.SHIELD) {
+                var busy by remember { mutableStateOf(false) }
+                var report by remember { mutableStateOf<PermissionGranter.Report?>(null) }
+                val scope = rememberCoroutineScope()
+                Txt(str(R.string.autogrant_hint), 14, TextLo, maxLines = 4, modifier = Modifier.padding(bottom = 8.dp))
+                Chip(str(if (busy) R.string.autogrant_busy else R.string.autogrant_run), false, accent, icon = G.SHIELD) {
+                    if (!busy) {
+                        busy = true
+                        scope.launch { report = withContext(Dispatchers.IO) { PermissionGranter.run(ctx) }; busy = false; tick++ }
+                    }
+                }
+                report?.let { r ->
+                    r.fail?.let { Txt(str(if (it == InternalAdb.Fail.AUTH) R.string.autogrant_err_auth else R.string.autogrant_err_connect), 15, Warn, maxLines = 5, modifier = Modifier.padding(top = 8.dp)) }
+                    r.steps.forEach { (label, ok) -> Stat(str(label), str(if (ok) R.string.perm_ok else R.string.autogrant_fail), if (ok) accent else Warn, if (ok) G.CHECK else G.WARN) }
+                }
             }
             Section(str(R.string.sec_perms), accent, G.SHIELD) {
                 val overlay = remember(tick) { Settings.canDrawOverlays(ctx) }

@@ -94,6 +94,8 @@ mostrato in Impostazioni). Se lo stato è sconosciuto resta scuro. I nomi dei se
 **App**: navigatore e player predefiniti scelti da un selettore che mostra solo le app che dichiarano navigazione (geo:, intent
 maps) o musica (MediaBrowser, categoria music); "Mostra tutte" per l'elenco completo. Stessa scelta dal menu di pressione lunga.
 
+**ADB interno**: Impostazioni > ADB interno > "Concedi tutti i permessi" concede da solo (senza PC) impostazioni protette, posizione, sovrapposizione, modifica impostazioni, accesso uso app, notifiche (listener player), finestre libere, esclusione batteria e opzioni sviluppatore. Il launcher parla con l'adbd dell'unità su 127.0.0.1:5555 (protocollo ADB classico con chiave RSA salvata in app): servono Debug USB e ADB su rete attivi e, al primo uso, "Consenti sempre" nella finestra di debug. Il debug wireless con pairing di Android 11+ non è supportato. Lo stesso canale rende operative cancella dati e forza chiusura nel menu app (la cancellazione cache usa `pm trim-caches`, che libera le cache di tutte le app). Usa il permesso INTERNET solo per il loopback.
+
 **Opzioni sviluppatore**: prima cella del drawer (disattivabile), le apre in un tap. Per attivarle in automatico se nascoste: `adb shell pm grant com.pasq96.headunit android.permission.WRITE_SECURE_SETTINGS`.
 
 **Menu app (pressione lunga)**: info, pin dock, imposta navigatore/player, poi le azioni distruttive in rosso dalla più lieve alla più severa: cancella cache, forza chiusura, cancella dati, disinstalla (conferma per le ultime tre; disinstalla nascosto per le app di sistema). Senza root o adb uid, cache e dati aprono le info app di Android e la chiusura termina solo i processi in background. Ogni etichetta ha la propria icona.

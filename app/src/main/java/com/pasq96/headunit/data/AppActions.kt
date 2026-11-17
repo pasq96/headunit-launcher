@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.provider.Settings
+import com.pasq96.headunit.system.InternalAdb
 import java.util.concurrent.TimeUnit
 
 /** Per-app quick actions. Privileged ones try a shell (works if the unit exposes su/adb uid), else degrade to a normal-permission path. */
@@ -23,13 +24,14 @@ object AppActions {
 
     /** Blocking: call off the main thread. */
     fun clearCache(ctx: Context, pkg: String): Result =
-        if (shell("rm -rf /data/data/$pkg/cache/* /data/data/$pkg/code_cache/* /sdcard/Android/data/$pkg/cache/*")) Result.DONE else settings(ctx, pkg)
+        // adb uid cannot touch another app's dirs: trim-caches evicts cached data system-wide instead
+        if (shell("test -w /data/data/$pkg/cache && rm -rf /data/data/$pkg/cache/* /data/data/$pkg/code_cache/* /sdcard/Android/data/$pkg/cache/*") || InternalAdb.run(ctx, "pm trim-caches 1099511627776")) Result.DONE else settings(ctx, pkg)
 
     fun clearData(ctx: Context, pkg: String): Result =
-        if (shell("pm clear $pkg")) Result.DONE else settings(ctx, pkg)
+        if (shell("pm clear $pkg") || InternalAdb.run(ctx, "pm clear $pkg")) Result.DONE else settings(ctx, pkg)
 
     fun forceStop(ctx: Context, pkg: String): Result {
-        if (shell("am force-stop $pkg")) return Result.DONE
+        if (shell("am force-stop $pkg") || InternalAdb.run(ctx, "am force-stop $pkg")) return Result.DONE
         // no privileged path: ends background processes only (KILL_BACKGROUND_PROCESSES is a normal permission)
         (ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).killBackgroundProcesses(pkg)
         return Result.DONE

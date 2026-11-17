@@ -144,4 +144,21 @@
     <string name="msg_use_settings">Not allowed from here: opened app info</string>
     <string name="drawer_dev">Developer options</string>
     <string name="drawer_dev_show">Developer options shortcut</string>
+    <string name="sec_autogrant">Internal ADB</string>
+    <string name="autogrant_run">Grant all permissions</string>
+    <string name="autogrant_busy">Connecting to internal ADB…</string>
+    <string name="autogrant_hint">Needs USB debugging and ADB over network (port 5555). Accept the debugging prompt with "Always allow" on first use.</string>
+    <string name="autogrant_err_connect">ADB not reachable on 127.0.0.1:5555. Enable USB debugging and ADB over network in developer options (Android 11+ wireless debugging is not supported).</string>
+    <string name="autogrant_err_auth">Authorization not granted: accept the debugging prompt with "Always allow" and retry.</string>
+    <string name="autogrant_fail">No</string>
+    <string name="grant_secure">Modify secure settings</string>
+    <string name="grant_location">Location</string>
+    <string name="grant_overlay">Draw over apps</string>
+    <string name="grant_write">Modify system settings</string>
+    <string name="grant_usage">App usage access</string>
+    <string name="grant_listener">Notification access (player)</string>
+    <string name="grant_freeform">Freeform windows</string>
+    <string name="grant_battery">Battery optimization exemption</string>
+    <string name="grant_notif">Notifications</string>
+    <string name="grant_devopts">Developer options enabled</string>
 </resources>

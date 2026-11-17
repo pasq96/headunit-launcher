@@ -389,7 +389,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 Stat(
                     str(R.string.led_state),
                     str(when (reading.on) { true -> R.string.led_on; false -> R.string.led_off; null -> R.string.led_unknown }) + (reading.source?.let { " · $it" } ?: ""),
-                , icon = G.LED)
+                    icon = G.LED,
+                )
                 Txt(str(R.string.led_hint), 13, TextLo, maxLines = 2)
                 Labeled(str(R.string.dim_mode), G.SUN, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
                 DimChips(vm, p, accent)

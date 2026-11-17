@@ -11,14 +11,21 @@ import androidx.datastore.preferences.core.Preferences
 import com.pasq96.headunit.MainActivity
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.AppRepo
+import com.pasq96.headunit.data.DimMode
 import com.pasq96.headunit.data.K
 import com.pasq96.headunit.data.MediaMode
 import com.pasq96.headunit.data.Panels
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.data.SettingsStore
+import com.pasq96.headunit.data.ThemeMode
 import com.pasq96.headunit.media.MediaRepo
 import com.pasq96.headunit.radio.DefaultImotorRadioBridge
 import com.pasq96.headunit.radio.ImotorRadioController
+import com.pasq96.headunit.system.IlluminationMonitor
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +35,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+enum class PickerKind { NAV, PLAYER }
 
 /**
  * Process-wide state shared by the activity and the overlay service (dock + panels), so both always show the same thing.
@@ -40,15 +49,30 @@ class LauncherHub(private val app: Application) {
     val apps = MutableStateFlow<List<AppInfo>>(emptyList())
     val media = MediaRepo(app)
     val radio: ImotorRadioController = DefaultImotorRadioBridge(app)
+    val illumination = IlluminationMonitor(app)
+    /** Button LEDs lit (true), off (false) or unknown (null). */
+    val lit: StateFlow<Boolean?> = illumination.state.map { it.on }.stateIn(scope, SharingStarted.Eagerly, null)
 
     var drawer by mutableStateOf(false)
     var tools by mutableStateOf(false)
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
+    var picker by mutableStateOf<PickerKind?>(null)  // app chooser (navigator / player)
     var overlayInWindow by mutableStateOf(false)   // panels hosted by the overlay service (above freeform apps)
     var dockInOverlay by mutableStateOf(false)     // dock hosted by the overlay service: the in-activity dock stays blank
     var restoreTick by mutableIntStateOf(0)        // bumped on wake: HomeScreen re-places embedded windows
     var gpsTick by mutableIntStateOf(0)            // bumped when the location permission answer comes back
+
+    init {
+        // The LED monitor runs only while an AUTO mode needs it (or the settings panel shows its diagnostics).
+        scope.launch {
+            combine(
+                prefs.map { Triple(it.theme == ThemeMode.AUTO || it.dimMode == DimMode.AUTO, it.ledSource, it.ledInvert) }.distinctUntilChanged(),
+                snapshotFlow { settings },
+            ) { (need, src, inv), open -> Triple(need || open, src, inv) }.distinctUntilChanged()
+                .collect { (run, src, inv) -> if (run) illumination.start(src, inv) else illumination.stop() }
+        }
+    }
 
     // Last measured panel windows (screen px), used to open an app straight into its panel.
     var navRect: Rect? = null
@@ -72,9 +96,17 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || settings || menuApp != null
+    fun hasOverlay() = drawer || tools || settings || menuApp != null || picker != null
 
-    fun closeOverlays() { drawer = false; tools = false; settings = false; menuApp = null }
+    fun closeOverlays() { drawer = false; tools = false; settings = false; menuApp = null; picker = null }
+
+    /** Dark overlay on/off for the current preferences and LED state. */
+    fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)
+
+    fun pick(pkg: String) {
+        when (picker) { PickerKind.NAV -> set(K.nav, pkg); PickerKind.PLAYER -> set(K.media, pkg); null -> {} }
+        picker = null
+    }
 
     /** The location prompt needs an activity: bring the launcher up and ask there. */
     fun requestLocation() {

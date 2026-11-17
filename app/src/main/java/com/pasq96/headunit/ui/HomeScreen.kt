@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pasq96.headunit.R
 import com.pasq96.headunit.data.ACCENTS
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.DockPos
@@ -58,7 +59,10 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeScreen(vm: LauncherHub) {
+fun HomeScreen(vm: LauncherHub) = HeadUnitTheme(vm) { HomeContent(vm) }
+
+@Composable
+private fun HomeContent(vm: LauncherHub) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
     val accent = Color(ACCENTS[p.accent])
@@ -106,14 +110,14 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
 
     val navSlot = @Composable { m: Modifier ->
         AppPanel(
-            "Navigazione", p.navPkg, vm, accent,
+            str(R.string.panel_nav), PickerKind.NAV, p.navPkg, vm, accent,
             m.onGloballyPositioned { vm.navRect = screenRect(it) },
         ) { vm.navRect }
     }
     val mediaSlot = @Composable { m: Modifier ->
         val mm = m.onGloballyPositioned { vm.mediaRect = screenRect(it) }
         when {
-            embedMedia -> AppPanel("Player", p.mediaPkg, vm, accent, mm) { vm.mediaRect }
+            embedMedia -> AppPanel(str(R.string.panel_player), PickerKind.PLAYER, p.mediaPkg, vm, accent, mm) { vm.mediaRect }
             p.mediaMode == MediaMode.RADIO -> RadioPanel(vm, p, accent, mm)
             else -> MediaCard(vm, p, accent, mm)
         }
@@ -144,21 +148,21 @@ private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Fl
 
 /** Placeholder window for an app shown through the Embedder (the real app is drawn above it by the system). */
 @Composable
-private fun AppPanel(title: String, pkg: String?, vm: LauncherHub, accent: Color, modifier: Modifier, rect: () -> Rect?) {
+private fun AppPanel(title: String, kind: PickerKind, pkg: String?, vm: LauncherHub, accent: Color, modifier: Modifier, rect: () -> Rect?) {
     val ctx = LocalContext.current
     val apps by vm.apps.collectAsStateWithLifecycle()
     val label = apps.firstOrNull { it.pkg == pkg }?.label
     Column(
         modifier.clip(RoundedCornerShape(16.dp)).background(Surface)
-            .clickable(enabled = pkg != null) { Embedder.launch(ctx, pkg!!, if (Embedder.canEmbed(ctx)) rect() else null) },
+            .clickable { if (pkg == null) vm.picker = kind else Embedder.launch(ctx, pkg, if (Embedder.canEmbed(ctx)) rect() else null) },
         Arrangement.Center, Alignment.CenterHorizontally,
     ) {
         Txt(title, 22, bold = true)
         Txt(
             when {
-                pkg == null -> "Tieni premuta un'app nel drawer per sceglierla"
-                !Embedder.canEmbed(ctx) -> "${label ?: pkg}: tocca per aprire a schermo intero (freeform non attivo, vedi README)"
-                else -> "${label ?: pkg}: tocca per riaprire"
+                pkg == null -> str(R.string.panel_pick_app)
+                !Embedder.canEmbed(ctx) -> str(R.string.panel_open_fullscreen, label ?: pkg)
+                else -> str(R.string.panel_reopen, label ?: pkg)
             },
             15, TextLo, modifier = Modifier.padding(24.dp), maxLines = 3, align = TextAlign.Center,
         )
@@ -174,14 +178,14 @@ private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifi
     val np by vm.media.state.collectAsStateWithLifecycle()
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Surface).padding(16.dp), Arrangement.Center, Alignment.CenterHorizontally) {
         if (!np.hasAccess) {
-            Txt("Accesso alle notifiche richiesto per leggere il brano", 16, TextLo, align = TextAlign.Center, maxLines = 3)
-            Box(Modifier.padding(top = 12.dp).height(48.dp).clip(RoundedCornerShape(24.dp)).background(accent).clickable { openNotificationAccess(ctx) }.padding(horizontal = 24.dp), Alignment.Center) { Txt("Abilita", 16, Bg, bold = true) }
+            Txt(str(R.string.media_need_access), 16, TextLo, align = TextAlign.Center, maxLines = 3)
+            Box(Modifier.padding(top = 12.dp).height(48.dp).clip(RoundedCornerShape(24.dp)).background(accent).clickable { openNotificationAccess(ctx) }.padding(horizontal = 24.dp), Alignment.Center) { Txt(str(R.string.media_enable), 16, OnAccent, bold = true) }
             return@Column
         }
         Box(Modifier.size(160.dp).clip(RoundedCornerShape(12.dp)).background(Surface2), Alignment.Center) {
             np.art?.let { Image(it, null, Modifier.fillMaxSize()) }
         }
-        Txt(np.title ?: "Nessun brano", 22, bold = true, modifier = Modifier.padding(top = 12.dp), align = TextAlign.Center)
+        Txt(np.title ?: str(R.string.media_no_track), 22, bold = true, modifier = Modifier.padding(top = 12.dp), align = TextAlign.Center)
         Txt(np.artist ?: "", 16, TextLo, align = TextAlign.Center)
         Row(Modifier.padding(top = 12.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
             GlyphButton(G.PREV, TextHi, { vm.media.previous() }, 64.dp, 36.dp)
@@ -189,7 +193,7 @@ private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifi
             GlyphButton(G.NEXT, TextHi, { vm.media.next() }, 64.dp, 36.dp)
         }
         (np.pkg ?: p.mediaPkg)?.let { src ->
-            Txt("Apri app sorgente", 14, accent, modifier = Modifier.padding(top = 8.dp).clickable { Embedder.launch(ctx, src) }.padding(12.dp))
+            Txt(str(R.string.media_open_source), 14, accent, modifier = Modifier.padding(top = 8.dp).clickable { Embedder.launch(ctx, src) }.padding(12.dp))
         }
     }
 }
@@ -197,7 +201,7 @@ private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifi
 // ---- dock ----
 
 @Composable
-internal fun DockLayer(hub: LauncherHub) {
+internal fun DockLayer(hub: LauncherHub) = HeadUnitTheme(hub) {
     val p by hub.prefs.collectAsStateWithLifecycle()
     val apps by hub.apps.collectAsStateWithLifecycle()
     Dock(hub, p, apps, Color(ACCENTS[p.accent]))

@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pasq96.headunit.R
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.radio.Band
 import java.math.BigDecimal
@@ -67,7 +68,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             Chip("AF", r.af, accent, height = 56.dp) { vm.radio.toggleAf() }
             Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
             Box(Modifier.weight(1f), Alignment.CenterEnd) {
-                Txt("Radio stock", 13, TextLo, modifier = Modifier.clickable { vm.radio.openStockApp() }.padding(12.dp))
+                Txt(str(R.string.radio_stock), 13, TextLo, modifier = Modifier.clickable { vm.radio.openStockApp() }.padding(12.dp))
             }
         }
 
@@ -79,7 +80,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
                 r.rt ?: "", Modifier.fillMaxWidth().padding(top = 4.dp).basicMarquee(iterations = Int.MAX_VALUE),
                 TextStyle(color = TextLo, fontSize = 17.sp, textAlign = TextAlign.Center), softWrap = false, maxLines = 1,
             )
-            if (!r.connected) Txt("Nessun dato dalla radio: controlla le action in ImotorRadioContract.kt", 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+            if (!r.connected) Txt(str(R.string.radio_no_data), 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         }
 
         TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) }
@@ -87,7 +88,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 36.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 17, bold = true) }
-            RadioBtn(Modifier.weight(1f), true, accent, { vm.radio.toggleMute() }) { Glyph(if (r.muted) G.PLAY else G.PAUSE, Bg, 36.dp) }
+            RadioBtn(Modifier.weight(1f), true, accent, { vm.radio.toggleMute() }) { Glyph(if (r.muted) G.PLAY else G.PAUSE, OnAccent, 36.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 17, bold = true) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 36.dp) }
         }
@@ -101,11 +102,11 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
                             .background(if (f > 0 && f == r.freqKhz) accent else Surface2)
                             .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
                         Alignment.Center,
-                    ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 18, if (f > 0 && f == r.freqKhz) Bg else if (f > 0) TextHi else TextLo, bold = true) }
+                    ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 18, if (f > 0 && f == r.freqKhz) OnAccent else if (f > 0) TextHi else TextLo, bold = true) }
                 }
             }
         }
-        Txt("Tocca: richiama · tieni premuto: salva o cancella", 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
+        Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
     }
 }
 
@@ -128,7 +129,8 @@ private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTu
     val freq by rememberUpdatedState(freqKhz)
     val tune by rememberUpdatedState(onTune)
     val shown = if (drag >= 0) drag else freqKhz
-    val labelStyle = TextStyle(color = TextLo, fontSize = 11.sp)
+    val tick = TextLo
+    val labelStyle = TextStyle(color = tick, fontSize = 11.sp)
 
     Canvas(
         Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(Surface2)
@@ -160,7 +162,7 @@ private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTu
             val x = cx + i * pxPerStep - shift
             val major = if (band == Band.AM) ((f - lo) / stepKhz) % 10 == 0 else f % 1000 == 0
             val h = if (major) size.height * 0.45f else size.height * 0.22f
-            drawLine(TextLo, Offset(x, size.height - h), Offset(x, size.height), if (major) 3f else 2f)
+            drawLine(tick, Offset(x, size.height - h), Offset(x, size.height), if (major) 3f else 2f)
             if (major) {
                 val text = if (band == Band.AM) "$f" else "${f / 1000}"
                 val layout = measurer.measure(text, labelStyle)

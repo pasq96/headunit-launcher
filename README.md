@@ -79,12 +79,25 @@ adb shell settings put global enable_freeform_support 0    # per annullare il fr
 
 ## Impostazioni
 
-Posizione, spessore e icone della dock, etichette, larghezza del divisore, proporzioni, scambio pannelli, dimensione della griglia
-del drawer, colore di accento, navigatore e player predefiniti, modalità player (widget o app embedded), orologio 12/24h,
-indicatori di rete, intervallo sensori, soglia allarme temperatura CPU, modalità notte e intensità, avvio automatico del
-navigatore e PLAY con ritardi, ripristino al risveglio con attesa.
+**Aspetto**: tema Scuro (predefinito), Chiaro o Auto; lingua Italiano (predefinita) o Inglese, cambio immediato; colore di accento.
+Tutti i testi stanno in `res/values` (IT) e `res/values-en` (EN).
+
+**LED e modalità notte**: con tema Auto e/o oscuramento Auto, LED dei tasti accesi = notte (tema scuro, overlay di oscuramento),
+spenti = giorno. Il segnale è letto da broadcast, impostazioni di sistema o sysfs (sorgente selezionabile, inversione, stato rilevato
+mostrato in Impostazioni). Se lo stato è sconosciuto resta scuro. I nomi dei segnali sono segnaposto in
+`system/IlluminationContract.kt`: vanno verificati sull'unità (logcat, `settings list system`, `/sys/class/leds`) e corretti solo lì.
+
+**Layout**: posizione, spessore e icone della dock, etichette, divisore, proporzioni, scambio pannelli.
+
+**Drawer**: verticale o orizzontale, colonne/righe (auto o fisse), dimensione icone, etichette.
+
+**App**: navigatore e player predefiniti scelti da un selettore che mostra solo le app che dichiarano navigazione (geo:, intent
+maps) o musica (MediaBrowser, categoria music); "Mostra tutte" per l'elenco completo. Stessa scelta dal menu di pressione lunga.
+
+Inoltre: modalità player (widget, app embedded, radio), radio (passo FM/AM, tasti volante), orologio 12/24h, indicatori di rete,
+sensori, soglia temperatura, avvio automatico, ripristino al risveglio, stato dei permessi.
 
 ## Struttura
 
 `ui/` Compose (home, dock, drawer, pannelli) · `embed/` strategie di embedding · `media/` MediaSession e listener ·
-`tools/` temperatura, RAM, batteria, GPS, luminosità, overlay notte · `data/` DataStore e app installate.
+`system/` LED tasti e tema auto · `radio/` radio FM nativa · `tools/` temperatura, RAM, batteria, GPS, luminosità, overlay notte · `data/` DataStore e app installate.

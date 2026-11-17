@@ -16,6 +16,10 @@ private val Context.store by preferencesDataStore("settings")
 enum class DockPos { BOTTOM, LEFT, RIGHT }
 enum class MediaMode { EMBED, WIDGET, RADIO }
 enum class Panels { BOTH, NAV, MEDIA }
+enum class ThemeMode { DARK, LIGHT, AUTO }          // AUTO: dark while the button LEDs are on, light when off
+enum class DimMode { OFF, ON, AUTO }                // dark overlay; AUTO follows the button LEDs
+enum class LedSource { AUTO, BROADCAST, SETTING, SYSFS }
+enum class Lang(val tag: String) { IT("it"), EN("en") }
 
 /** Accent palette (ARGB), indexed by [Prefs.accent]. */
 val ACCENTS = longArrayOf(0xFF3DDC84, 0xFF2B7FFF, 0xFFFFB300, 0xFFFF5252, 0xFFB388FF)
@@ -30,7 +34,12 @@ data class Prefs(
     val dockDp: Int = 88,                   // dock thickness
     val iconDp: Int = 56,                   // dock icon size
     val dockLabels: Boolean = false,
-    val drawerCellDp: Int = 110,
+    val drawerHorizontal: Boolean = false,  // drawer scrolls sideways
+    val drawerSpan: Int = 0,                // columns (vertical) / rows (horizontal), 0 = auto
+    val drawerIconDp: Int = 64,
+    val drawerLabels: Boolean = true,
+    val theme: ThemeMode = ThemeMode.DARK,
+    val lang: Lang = Lang.IT,
     val accent: Int = 0,
     // apps
     val navPkg: String? = null,
@@ -43,7 +52,9 @@ data class Prefs(
     // car tools
     val toolsIntervalSec: Int = 2,
     val tempWarnC: Int = 80,
-    val night: Boolean = false,
+    val dimMode: DimMode = DimMode.OFF,
+    val ledSource: LedSource = LedSource.AUTO,
+    val ledInvert: Boolean = false,         // signal polarity: true = LEDs on means day
     val nightAlpha: Float = 0.55f,
     // boot
     val autoStart: Boolean = false,
@@ -71,7 +82,12 @@ object K {
     val dockDp = intPreferencesKey("dock_dp")
     val iconDp = intPreferencesKey("icon_dp")
     val labels = booleanPreferencesKey("dock_labels")
-    val cell = intPreferencesKey("drawer_cell_dp")
+    val drawerH = booleanPreferencesKey("drawer_horizontal")
+    val drawerSpan = intPreferencesKey("drawer_span")
+    val drawerIcon = intPreferencesKey("drawer_icon_dp")
+    val drawerLabels = booleanPreferencesKey("drawer_labels")
+    val theme = stringPreferencesKey("theme")
+    val lang = stringPreferencesKey("lang")
     val accent = intPreferencesKey("accent")
     val nav = stringPreferencesKey("nav")
     val media = stringPreferencesKey("media")
@@ -81,7 +97,9 @@ object K {
     val links = booleanPreferencesKey("show_links")
     val interval = intPreferencesKey("tools_interval_s")
     val tempWarn = intPreferencesKey("temp_warn_c")
-    val night = booleanPreferencesKey("night")
+    val dim = stringPreferencesKey("dim_mode")
+    val ledSource = stringPreferencesKey("led_source")
+    val ledInvert = booleanPreferencesKey("led_invert")
     val nightAlpha = floatPreferencesKey("night_alpha")
     val auto = booleanPreferencesKey("auto_start")
     val autoDelay = intPreferencesKey("auto_start_delay_s")
@@ -108,7 +126,12 @@ class SettingsStore(private val ctx: Context) {
         dockDp = (p[K.dockDp] ?: 88).coerceIn(64, 140),
         iconDp = (p[K.iconDp] ?: 56).coerceIn(40, 88),
         dockLabels = p[K.labels] ?: false,
-        drawerCellDp = (p[K.cell] ?: 110).coerceIn(80, 180),
+        drawerHorizontal = p[K.drawerH] ?: false,
+        drawerSpan = (p[K.drawerSpan] ?: 0).coerceIn(0, 10),
+        drawerIconDp = (p[K.drawerIcon] ?: 64).coerceIn(40, 112),
+        drawerLabels = p[K.drawerLabels] ?: true,
+        theme = p[K.theme].toEnum(ThemeMode.DARK),
+        lang = p[K.lang].toEnum(Lang.IT),
         accent = (p[K.accent] ?: 0).coerceIn(0, ACCENTS.lastIndex),
         navPkg = p[K.nav],
         mediaPkg = p[K.media],
@@ -118,7 +141,9 @@ class SettingsStore(private val ctx: Context) {
         showLinks = p[K.links] ?: true,
         toolsIntervalSec = (p[K.interval] ?: 2).coerceIn(1, 10),
         tempWarnC = (p[K.tempWarn] ?: 80).coerceIn(50, 110),
-        night = p[K.night] ?: false,
+        dimMode = p[K.dim].toEnum(DimMode.OFF),
+        ledSource = p[K.ledSource].toEnum(LedSource.AUTO),
+        ledInvert = p[K.ledInvert] ?: false,
         nightAlpha = (p[K.nightAlpha] ?: 0.55f).coerceIn(0.1f, 0.85f),
         autoStart = p[K.auto] ?: false,
         autoStartDelaySec = (p[K.autoDelay] ?: 2).coerceIn(0, 30),

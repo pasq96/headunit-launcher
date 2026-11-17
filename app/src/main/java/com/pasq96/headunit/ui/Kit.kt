@@ -47,13 +47,6 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.sin
 
-val Bg = Color(0xFF0B0F14)
-val Surface = Color(0xFF151B23)
-val Surface2 = Color(0xFF212A36)
-val TextHi = Color(0xFFEAF0F6)
-val TextLo = Color(0xFF8A97A6)
-val Warn = Color(0xFFFF5252)
-
 @Composable
 fun Txt(
     text: String, size: Int = 16, color: Color = TextHi, bold: Boolean = false,
@@ -115,7 +108,7 @@ fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, on
         Modifier.height(height).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
             .clickable(onClick = onClick).padding(horizontal = 20.dp),
         Alignment.Center,
-    ) { Txt(label, 16, if (selected) Bg else TextHi, bold = selected) }
+    ) { Txt(label, 16, if (selected) OnAccent else TextHi, bold = selected) }
 
 @Composable
 fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
@@ -160,9 +153,10 @@ fun SimpleSlider(value: Float, accent: Color, onChange: (Float) -> Unit, onDone:
                 detectHorizontalDragGestures(onDragEnd = { done() }) { c, _ -> c.consume(); change((c.position.x / w).coerceIn(0f, 1f)) }
             },
     ) {
+        val track = Surface2
         Canvas(Modifier.fillMaxWidth().height(48.dp)) {
             val y = size.height / 2; val x = size.width * value.coerceIn(0f, 1f)
-            drawLine(Surface2, Offset(0f, y), Offset(size.width, y), 10f, StrokeCap.Round)
+            drawLine(track, Offset(0f, y), Offset(size.width, y), 10f, StrokeCap.Round)
             drawLine(accent, Offset(0f, y), Offset(x, y), 10f, StrokeCap.Round)
             drawCircle(accent, 16f, Offset(x, y))
         }

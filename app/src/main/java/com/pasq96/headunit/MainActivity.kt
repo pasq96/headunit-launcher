@@ -19,6 +19,7 @@ import com.pasq96.headunit.ui.HomeScreen
 import com.pasq96.headunit.ui.LauncherHub
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -50,7 +51,8 @@ class MainActivity : ComponentActivity() {
 
         // The dim overlay is a window of this process: re-apply it whenever the setting changes or the launcher restarts.
         lifecycleScope.launch {
-            vm.prefs.map { it.night to it.nightAlpha }.distinctUntilChanged().collect { (on, a) -> CarTools.setNightOverlay(this@MainActivity, on, a) }
+            combine(vm.prefs.map { it.dimMode to it.nightAlpha }.distinctUntilChanged(), vm.lit) { (mode, a), lit -> vm.dimOn(vm.prefs.value.copy(dimMode = mode), lit) to a }
+                .distinctUntilChanged().collect { (on, a) -> CarTools.setNightOverlay(this@MainActivity, on, a) }
         }
         lifecycleScope.launch { vm.prefs.map { it.dockOverlay }.distinctUntilChanged().collect { OverlayService.sync(this@MainActivity) } }
 
@@ -122,7 +124,7 @@ class MainActivity : ComponentActivity() {
         wakeJob = lifecycleScope.launch {
             val p = vm.loadedPrefs()
             delay(p.wakeDelaySec * 1000L)
-            CarTools.setNightOverlay(this@MainActivity, p.night, p.nightAlpha)
+            CarTools.setNightOverlay(this@MainActivity, vm.dimOn(), p.nightAlpha)
             OverlayService.sync(this@MainActivity)
             vm.media.start()
             vm.radio.start()

@@ -101,7 +101,7 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
         if (dragging || !Embedder.canEmbed(ctx)) return@LaunchedEffect
         delay(450)
         if (showNav) vm.navRect?.let { r -> p.navPkg?.let { Embedder.launch(ctx, it, r) } }
-        if (showMedia && embedMedia) vm.mediaRect?.let { r -> Embedder.launch(ctx, p.mediaPkg!!, r) }
+        if (showMedia && embedMedia) vm.mediaRect?.let { r -> Embedder.launch(ctx, p.mediaPkg, r) }
     }
 
     val navSlot = @Composable { m: Modifier ->

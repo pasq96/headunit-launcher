@@ -65,6 +65,15 @@ adb shell settings put global enable_freeform_support 0    # per annullare il fr
   altrimenti avvio a schermo intero. `ActivityView`/`TaskView` non si usano perché richiedono permessi di firma di sistema.
   Con il freeform le finestre ospitate stanno sopra il launcher: drawer, impostazioni e Car Tools si aprono quindi in una finestra
   overlay (serve `SYSTEM_ALERT_WINDOW`), altrimenti sarebbero coperti.
+- **Dock e pannelli in overlay**: `OverlayService` (servizio in foreground, nessun suono) ospita la dock e, quando servono, drawer,
+  impostazioni e Car Tools come finestre overlay sopra le app freeform: toccare la mappa non nasconde più la dock. Parte da solo
+  se ci sono il permesso overlay e il freeform; la dock overlay si disattiva dalle impostazioni. L'activity tiene lo spazio della dock vuoto,
+  così la geometria dei pannelli non cambia. Le finestre overlay non prendono mai il focus: i tasti del volante restano all'app in primo piano.
+- **Radio FM nativa**: terza modalità del player (Impostazioni > Player). Display frequenza, PS e RT scorrevole, barra di sintonia
+  trascinabile, seek, passo ±0.1 MHz, FM1/FM2/AM, AF/TA, 8 preset locali (tocca = richiama, tieni premuto = salva o cancella) e
+  "Radio stock" per aprire l'app originale. Con il pannello attivo e il launcher in primo piano, NEXT/PREV del volante scorrono i preset
+  (o fanno seek, a scelta). **Le action `com.imotor.*` sono segnaposto non verificati**: dopo aver ispezionato l'APK della radio
+  si correggono solo in `radio/ImotorRadioContract.kt` (action, extra, unità della frequenza).
 - **Limiti noti**: il ridimensionamento di un task già aperto dipende dal firmware; se la finestra non si adatta al volo,
   tocca il pannello per riaprire l'app con le nuove misure.
 

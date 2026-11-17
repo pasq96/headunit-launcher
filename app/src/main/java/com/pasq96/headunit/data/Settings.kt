@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 private val Context.store by preferencesDataStore("settings")
 
 enum class DockPos { BOTTOM, LEFT, RIGHT }
-enum class MediaMode { EMBED, WIDGET }
+enum class MediaMode { EMBED, WIDGET, RADIO }
 enum class Panels { BOTH, NAV, MEDIA }
 
 /** Accent palette (ARGB), indexed by [Prefs.accent]. */
@@ -53,6 +53,13 @@ data class Prefs(
     // ACC ON/OFF (suspend-to-RAM): re-place the embedded windows after wake
     val resumeOnWake: Boolean = true,
     val wakeDelaySec: Int = 2,
+    // native FM radio
+    val presets: List<Int> = List(8) { 0 },   // kHz, 0 = empty slot
+    val swcSeek: Boolean = false,             // steering wheel NEXT/PREV: seek instead of walking the presets
+    val fmStepKhz: Int = 100,
+    val amStepKhz: Int = 9,
+    // dock hosted in an overlay window (needs SYSTEM_ALERT_WINDOW + freeform)
+    val dockOverlay: Boolean = true,
 )
 
 object K {
@@ -82,6 +89,11 @@ object K {
     val playDelay = intPreferencesKey("auto_play_delay_s")
     val resume = booleanPreferencesKey("resume_on_wake")
     val wakeDelay = intPreferencesKey("wake_delay_s")
+    val presets = stringPreferencesKey("radio_presets")
+    val swcSeek = booleanPreferencesKey("swc_seek")
+    val fmStep = intPreferencesKey("fm_step_khz")
+    val amStep = intPreferencesKey("am_step_khz")
+    val dockOverlay = booleanPreferencesKey("dock_overlay")
 }
 
 class SettingsStore(private val ctx: Context) {
@@ -114,6 +126,11 @@ class SettingsStore(private val ctx: Context) {
         autoPlayDelaySec = (p[K.playDelay] ?: 5).coerceIn(0, 60),
         resumeOnWake = p[K.resume] ?: true,
         wakeDelaySec = (p[K.wakeDelay] ?: 2).coerceIn(0, 15),
+        presets = (p[K.presets]?.split(',')?.map { it.toIntOrNull() ?: 0 } ?: emptyList()).let { l -> List(8) { l.getOrElse(it) { 0 } } },
+        swcSeek = p[K.swcSeek] ?: false,
+        fmStepKhz = (p[K.fmStep] ?: 100).coerceIn(50, 200),
+        amStepKhz = (p[K.amStep] ?: 9).coerceIn(5, 10),
+        dockOverlay = p[K.dockOverlay] ?: true,
     )
 
     suspend fun <T> set(key: Preferences.Key<T>, value: T) = ctx.store.edit { it[key] = value }

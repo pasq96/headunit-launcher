@@ -6,8 +6,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -78,11 +76,11 @@ private fun openUsageAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_USAGE_
 
 /** Safe mode: two taps from the launcher to Android settings / the default-home picker. Always visible, top of every panel. */
 @Composable
-private fun EmergencyBar() {
+private fun EmergencyBar(vm: LauncherHub) {
     val ctx = LocalContext.current
     Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), Arrangement.spacedBy(12.dp)) {
-        EmergencyButton("Impostazioni Android", Modifier.weight(1f)) { openAndroidSettings(ctx) }
-        EmergencyButton("App predefinite (cambia launcher)", Modifier.weight(1f)) { openDefaultApps(ctx) }
+        EmergencyButton("Impostazioni Android", Modifier.weight(1f)) { vm.closeOverlays(); openAndroidSettings(ctx) }
+        EmergencyButton("App predefinite (cambia launcher)", Modifier.weight(1f)) { vm.closeOverlays(); openDefaultApps(ctx) }
     }
 }
 
@@ -96,7 +94,7 @@ private fun EmergencyButton(text: String, modifier: Modifier, onClick: () -> Uni
 
 /** Drawer / quick tools / settings / app menu. Inline in the activity, or in an overlay window while apps are embedded. */
 @Composable
-fun OverlayLayer(vm: HomeViewModel) {
+fun OverlayLayer(vm: LauncherHub) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
     val accent = Color(ACCENTS[p.accent])
@@ -113,7 +111,7 @@ private fun Dim(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit)
 // ---- app drawer ----
 
 @Composable
-private fun Drawer(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, accent: Color) {
+private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
     Column(Modifier.fillMaxSize().background(Color(0xF20B0F14)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
@@ -137,7 +135,7 @@ private fun Drawer(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, accent: Col
 }
 
 @Composable
-private fun AppMenu(vm: HomeViewModel, p: Prefs, a: AppInfo, accent: Color) {
+private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
     val close = { vm.menuApp = null }
     Dim(close) {
         Column(
@@ -163,10 +161,9 @@ private fun MenuBtn(text: String, tint: Color, onClick: () -> Unit) =
 // ---- quick tools ----
 
 @Composable
-private fun ToolsPanel(vm: HomeViewModel, p: Prefs, accent: Color) {
+private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
     val ctx = LocalContext.current
-    var gps by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { gps = it }
+    val gps = remember(vm.gpsTick) { ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED }
     val st by remember(p.toolsIntervalSec) { CarTools.stats(ctx, p.toolsIntervalSec * 1000L) }.collectAsStateWithLifecycle(null)
     val speed by remember(gps) { CarTools.speedKmh(ctx) }.collectAsStateWithLifecycle(null)
     var bright by remember { mutableFloatStateOf(CarTools.brightness(ctx) / 255f) }
@@ -185,10 +182,10 @@ private fun ToolsPanel(vm: HomeViewModel, p: Prefs, accent: Color) {
                 Stat("RAM libera", st?.let { "${it.ramFreeMb} / ${it.ramTotalMb} MB" } ?: "…")
                 Stat("Batteria auto", st?.battV?.let { "%.1f V".format(it) } ?: "n/d")
                 if (gps) Stat("Velocità GPS", speed?.let { "${it.roundToInt()} km/h" } ?: "nessun fix")
-                else Chip("Abilita GPS per la velocità", false, accent) { ask.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+                else Chip("Abilita GPS per la velocità", false, accent) { vm.requestLocation() }
             }
             Section("Schermo", accent) {
-                if (!CarTools.canWriteSettings(ctx)) Chip("Concedi “Modifica impostazioni di sistema”", false, accent) { openWriteSettings(ctx) }
+                if (!CarTools.canWriteSettings(ctx)) Chip("Concedi “Modifica impostazioni di sistema”", false, accent) { vm.closeOverlays(); openWriteSettings(ctx) }
                 else SimpleSlider(bright, accent, { bright = it; CarTools.setBrightness(ctx, (it * 255).roundToInt()) })
                 ToggleRow("Modalità notte (overlay scuro)", p.night, accent) { vm.set(K.night, it) }
             }
@@ -201,9 +198,10 @@ private fun ToolsPanel(vm: HomeViewModel, p: Prefs, accent: Color) {
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Player: widget", p.mediaMode == MediaMode.WIDGET, accent) { vm.setEnum(K.mode, MediaMode.WIDGET) }
                     Chip("Player: app", p.mediaMode == MediaMode.EMBED, accent) { vm.setEnum(K.mode, MediaMode.EMBED) }
+                    Chip("Radio FM", p.mediaMode == MediaMode.RADIO, accent) { vm.setEnum(K.mode, MediaMode.RADIO) }
                 }
             }
-            Section("Uscita di emergenza", Danger) { EmergencyBar() }
+            Section("Uscita di emergenza", Danger) { EmergencyBar(vm) }
         }
     }
 }
@@ -215,7 +213,7 @@ private fun Stat(label: String, value: String, color: Color = TextHi) =
 // ---- settings ----
 
 @Composable
-private fun SettingsPanel(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, accent: Color) {
+private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
     // Permission/status rows are re-read every time the user comes back from a system settings screen.
     var tick by remember { mutableIntStateOf(0) }
@@ -234,7 +232,7 @@ private fun SettingsPanel(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, acce
             Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Txt("Impostazioni", 26, bold = true); GlyphButton(G.CLOSE, TextHi, { vm.settings = false })
             }
-            EmergencyBar()
+            EmergencyBar(vm)
 
             Section("Layout", accent) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -260,9 +258,26 @@ private fun SettingsPanel(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, acce
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip("Player: widget", p.mediaMode == MediaMode.WIDGET, accent) { vm.setEnum(K.mode, MediaMode.WIDGET) }
                     Chip("Player: app embedded", p.mediaMode == MediaMode.EMBED, accent) { vm.setEnum(K.mode, MediaMode.EMBED) }
+                    Chip("Radio FM nativa", p.mediaMode == MediaMode.RADIO, accent) { vm.setEnum(K.mode, MediaMode.RADIO) }
+                }
+            }
+            Section("Radio FM nativa", accent) {
+                ToggleRow("Volante: seek invece dei preset", p.swcSeek, accent) { vm.set(K.swcSeek, it) }
+                Txt("Passo FM", 15, TextLo)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(50, 100, 200).forEach { k -> Chip("$k kHz", p.fmStepKhz == k, accent) { vm.set(K.fmStep, k) } }
+                }
+                Txt("Passo AM", 15, TextLo, modifier = Modifier.padding(top = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(9, 10).forEach { k -> Chip("$k kHz", p.amStepKhz == k, accent) { vm.set(K.amStep, k) } }
+                }
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Importa preset dalla radio", false, accent) { vm.importStockPresets() }
+                    Chip("Apri radio stock", false, accent) { vm.closeOverlays(); vm.radio.openStockApp() }
                 }
             }
             Section("Dock", accent) {
+                ToggleRow("Dock sempre sopra le app (overlay, serve freeform)", p.dockOverlay, accent) { vm.set(K.dockOverlay, it) }
                 ToggleRow("Orologio 24 ore", p.clock24h, accent) { vm.set(K.clock24, it) }
                 ToggleRow("Indicatori WiFi / Hotspot / Bluetooth", p.showLinks, accent) { vm.set(K.links, it) }
             }
@@ -286,10 +301,10 @@ private fun SettingsPanel(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, acce
                 val write = remember(tick) { CarTools.canWriteSettings(ctx) }
                 val listener = remember(tick) { vm.media.hasAccess() }
                 val freeform = remember(tick) { Embedder.freeformEnabled(ctx) }
-                PermRow("Sovrapposizione (overlay)", overlay, accent) { openOverlayAccess(ctx) }
-                PermRow("Modifica impostazioni di sistema", write, accent) { openWriteSettings(ctx) }
-                PermRow("Accesso notifiche (copertina e titolo)", listener, accent) { openNotificationAccess(ctx) }
-                PermRow("Accesso utilizzo app", null, accent) { openUsageAccess(ctx) }
+                PermRow("Sovrapposizione (overlay)", overlay, accent) { vm.closeOverlays(); openOverlayAccess(ctx) }
+                PermRow("Modifica impostazioni di sistema", write, accent) { vm.closeOverlays(); openWriteSettings(ctx) }
+                PermRow("Accesso notifiche (copertina e titolo)", listener, accent) { vm.closeOverlays(); openNotificationAccess(ctx) }
+                PermRow("Accesso utilizzo app", null, accent) { vm.closeOverlays(); openUsageAccess(ctx) }
                 Stat("Finestre freeform", if (freeform) "attive" else "non attive (vedi README)", if (freeform) accent else Warn)
             }
         }

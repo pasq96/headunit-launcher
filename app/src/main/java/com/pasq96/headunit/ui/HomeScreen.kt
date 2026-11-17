@@ -58,13 +58,14 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeScreen(vm: HomeViewModel) {
+fun HomeScreen(vm: LauncherHub) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
     val accent = Color(ACCENTS[p.accent])
 
     Box(Modifier.fillMaxSize().background(Bg)) {
-        val dock = @Composable { Dock(vm, p, apps, accent) }
+        // With the dock in the overlay service the in-activity dock stays a blank spacer of the same size (same panel geometry).
+        val dock = @Composable { if (vm.dockInOverlay) Box(dockSize(p)) else Dock(vm, p, apps, accent) }
         when (p.dock) {
             DockPos.BOTTOM -> Column(Modifier.fillMaxSize()) { Split(vm, p, accent, Modifier.weight(1f)); dock() }
             DockPos.LEFT -> Row(Modifier.fillMaxSize()) { dock(); Split(vm, p, accent, Modifier.weight(1f)) }
@@ -77,7 +78,7 @@ fun HomeScreen(vm: HomeViewModel) {
 // ---- split view: two panels + draggable handle ----
 
 @Composable
-private fun Split(vm: HomeViewModel, p: Prefs, accent: Color, modifier: Modifier) {
+private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
     val ctx = LocalContext.current
     val view = LocalView.current
     var width by remember { mutableIntStateOf(1) }
@@ -111,7 +112,11 @@ private fun Split(vm: HomeViewModel, p: Prefs, accent: Color, modifier: Modifier
     }
     val mediaSlot = @Composable { m: Modifier ->
         val mm = m.onGloballyPositioned { vm.mediaRect = screenRect(it) }
-        if (embedMedia) AppPanel("Player", p.mediaPkg, vm, accent, mm) { vm.mediaRect } else MediaCard(vm, p, accent, mm)
+        when {
+            embedMedia -> AppPanel("Player", p.mediaPkg, vm, accent, mm) { vm.mediaRect }
+            p.mediaMode == MediaMode.RADIO -> RadioPanel(vm, p, accent, mm)
+            else -> MediaCard(vm, p, accent, mm)
+        }
     }
     val slots = (if (p.swapPanels) listOf(false to mediaSlot, true to navSlot) else listOf(true to navSlot, false to mediaSlot))
         .filter { (isNav, _) -> if (isNav) showNav else showMedia }
@@ -139,7 +144,7 @@ private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Fl
 
 /** Placeholder window for an app shown through the Embedder (the real app is drawn above it by the system). */
 @Composable
-private fun AppPanel(title: String, pkg: String?, vm: HomeViewModel, accent: Color, modifier: Modifier, rect: () -> Rect?) {
+private fun AppPanel(title: String, pkg: String?, vm: LauncherHub, accent: Color, modifier: Modifier, rect: () -> Rect?) {
     val ctx = LocalContext.current
     val apps by vm.apps.collectAsStateWithLifecycle()
     val label = apps.firstOrNull { it.pkg == pkg }?.label
@@ -164,7 +169,7 @@ private fun AppPanel(title: String, pkg: String?, vm: HomeViewModel, accent: Col
 // ---- native media widget ----
 
 @Composable
-private fun MediaCard(vm: HomeViewModel, p: Prefs, accent: Color, modifier: Modifier) {
+private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
     val ctx = LocalContext.current
     val np by vm.media.state.collectAsStateWithLifecycle()
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Surface).padding(16.dp), Arrangement.Center, Alignment.CenterHorizontally) {
@@ -192,10 +197,20 @@ private fun MediaCard(vm: HomeViewModel, p: Prefs, accent: Color, modifier: Modi
 // ---- dock ----
 
 @Composable
-private fun Dock(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, accent: Color) {
+internal fun DockLayer(hub: LauncherHub) {
+    val p by hub.prefs.collectAsStateWithLifecycle()
+    val apps by hub.apps.collectAsStateWithLifecycle()
+    Dock(hub, p, apps, Color(ACCENTS[p.accent]))
+}
+
+internal fun dockSize(p: Prefs): Modifier =
+    if (p.dock != DockPos.BOTTOM) Modifier.width(p.dockDp.dp).fillMaxHeight() else Modifier.height(p.dockDp.dp).fillMaxWidth()
+
+@Composable
+private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val vertical = p.dock != DockPos.BOTTOM
     val pinned = remember(apps, p.pinned) { p.pinned.mapNotNull { pkg -> apps.firstOrNull { it.pkg == pkg } } }
-    val mod = (if (vertical) Modifier.width(p.dockDp.dp).fillMaxHeight() else Modifier.height(p.dockDp.dp).fillMaxWidth()).background(Surface)
+    val mod = dockSize(p).background(Surface)
     val icon: @Composable (AppInfo) -> Unit = { a -> DockIcon(a, p, vm, accent) }
     val buttons: @Composable () -> Unit = {
         GlyphButton(when (p.panels) { Panels.BOTH -> G.SPLIT; Panels.NAV -> G.SOLO_L; Panels.MEDIA -> G.SOLO_R }, TextHi, { vm.cyclePanels() })
@@ -220,7 +235,7 @@ private fun Dock(vm: HomeViewModel, p: Prefs, apps: List<AppInfo>, accent: Color
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun DockIcon(a: AppInfo, p: Prefs, vm: HomeViewModel, accent: Color) {
+private fun DockIcon(a: AppInfo, p: Prefs, vm: LauncherHub, accent: Color) {
     val ctx = LocalContext.current
     val role = a.pkg == p.navPkg || a.pkg == p.mediaPkg
     Column(

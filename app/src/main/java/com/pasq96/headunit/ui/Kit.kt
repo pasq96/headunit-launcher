@@ -66,7 +66,7 @@ fun Txt(
 
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
-enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE }
+enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -97,6 +97,8 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
         G.PAUSE -> { drawRect(c, Offset(w * 0.25f, h * 0.18f), Size(w * 0.17f, h * 0.64f)); drawRect(c, Offset(w * 0.58f, h * 0.18f), Size(w * 0.17f, h * 0.64f)) }
         G.NEXT -> { drawPath(Path().apply { moveTo(w * 0.2f, h * 0.2f); lineTo(w * 0.7f, h * 0.5f); lineTo(w * 0.2f, h * 0.8f); close() }, c); drawRect(c, Offset(w * 0.74f, h * 0.2f), Size(w * 0.09f, h * 0.6f)) }
         G.PREV -> { drawPath(Path().apply { moveTo(w * 0.8f, h * 0.2f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.8f, h * 0.8f); close() }, c); drawRect(c, Offset(w * 0.17f, h * 0.2f), Size(w * 0.09f, h * 0.6f)) }
+        G.SEEK_UP -> for (x in listOf(0.12f, 0.46f)) drawPath(Path().apply { moveTo(w * x, h * 0.22f); lineTo(w * (x + 0.4f), h * 0.5f); lineTo(w * x, h * 0.78f); close() }, c)
+        G.SEEK_DOWN -> for (x in listOf(0.48f, 0.14f)) drawPath(Path().apply { moveTo(w * (x + 0.4f), h * 0.22f); lineTo(w * x, h * 0.5f); lineTo(w * (x + 0.4f), h * 0.78f); close() }, c)
         G.CLOSE -> { drawLine(c, Offset(w * 0.25f, h * 0.25f), Offset(w * 0.75f, h * 0.75f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.75f, h * 0.25f), Offset(w * 0.25f, h * 0.75f), sw, StrokeCap.Round) }
     }
 }
@@ -108,9 +110,9 @@ fun GlyphButton(g: G, tint: Color, onClick: () -> Unit, size: Dp = 56.dp, glyph:
     Box(Modifier.size(size).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick), Alignment.Center) { Glyph(g, tint, glyph) }
 
 @Composable
-fun Chip(label: String, selected: Boolean, accent: Color, onClick: () -> Unit) =
+fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, onClick: () -> Unit) =
     Box(
-        Modifier.height(48.dp).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
+        Modifier.height(height).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
             .clickable(onClick = onClick).padding(horizontal = 20.dp),
         Alignment.Center,
     ) { Txt(label, 16, if (selected) Bg else TextHi, bold = selected) }

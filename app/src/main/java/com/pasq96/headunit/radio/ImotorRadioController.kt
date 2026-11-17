@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 enum class Band(val label: String) { FM1("FM1"), FM2("FM2"), AM("AM") }
 
-class RadioState(
+data class RadioState(
     val connected: Boolean = false,     // true once the radio has sent at least one STATE
     val band: Band = Band.FM1,
     val freqKhz: Int = 0,               // 0 = unknown

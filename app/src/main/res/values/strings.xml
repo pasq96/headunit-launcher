@@ -142,4 +142,6 @@
     <string name="confirm_uninstall">Disinstallare %1$s?</string>
     <string name="msg_done">Fatto</string>
     <string name="msg_use_settings">Operazione non consentita da qui: aperte le info app</string>
+    <string name="drawer_dev">Opzioni sviluppatore</string>
+    <string name="drawer_dev_show">Scorciatoia Opzioni sviluppatore</string>
 </resources>

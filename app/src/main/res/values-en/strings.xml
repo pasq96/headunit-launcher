@@ -142,4 +142,6 @@
     <string name="confirm_uninstall">Uninstall %1$s?</string>
     <string name="msg_done">Done</string>
     <string name="msg_use_settings">Not allowed from here: opened app info</string>
+    <string name="drawer_dev">Developer options</string>
+    <string name="drawer_dev_show">Developer options shortcut</string>
 </resources>

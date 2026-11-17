@@ -38,6 +38,7 @@ data class Prefs(
     val drawerSpan: Int = 0,                // columns (vertical) / rows (horizontal), 0 = auto
     val drawerIconDp: Int = 64,
     val drawerLabels: Boolean = true,
+    val drawerDev: Boolean = true,          // developer-options shortcut as first drawer cell
     val theme: ThemeMode = ThemeMode.DARK,
     val lang: Lang = Lang.IT,
     val accent: Int = 0,
@@ -86,6 +87,7 @@ object K {
     val drawerSpan = intPreferencesKey("drawer_span")
     val drawerIcon = intPreferencesKey("drawer_icon_dp")
     val drawerLabels = booleanPreferencesKey("drawer_labels")
+    val drawerDev = booleanPreferencesKey("drawer_dev")
     val theme = stringPreferencesKey("theme")
     val lang = stringPreferencesKey("lang")
     val accent = intPreferencesKey("accent")
@@ -130,6 +132,7 @@ class SettingsStore(private val ctx: Context) {
         drawerSpan = (p[K.drawerSpan] ?: 0).coerceIn(0, 10),
         drawerIconDp = (p[K.drawerIcon] ?: 64).coerceIn(40, 112),
         drawerLabels = p[K.drawerLabels] ?: true,
+        drawerDev = p[K.drawerDev] ?: true,
         theme = p[K.theme].toEnum(ThemeMode.DARK),
         lang = p[K.lang].toEnum(Lang.IT),
         accent = (p[K.accent] ?: 0).coerceIn(0, ACCENTS.lastIndex),

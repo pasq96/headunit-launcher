@@ -35,6 +35,18 @@ object AppActions {
         return Result.DONE
     }
 
+    /** Developer options in one tap: raises the enabled flag when WRITE_SECURE_SETTINGS was granted via adb, then tries known entry points. */
+    fun developerOptions(ctx: Context) {
+        runCatching { Settings.Global.putInt(ctx.contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 1) }
+        val targets = listOf(
+            Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS),
+            Intent().setClassName("com.android.settings", "com.android.settings.DevelopmentSettings"),
+            Intent().setClassName("com.android.settings", "com.android.settings.Settings\$DevelopmentSettingsDashboardActivity"),
+            Intent(Settings.ACTION_SETTINGS),
+        )
+        targets.firstOrNull { runCatching { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess }
+    }
+
     private fun settings(ctx: Context, pkg: String): Result { info(ctx, pkg); return Result.SETTINGS }
 
     private fun start(ctx: Context, i: Intent) { runCatching { ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }

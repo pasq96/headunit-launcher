@@ -129,17 +129,25 @@ private fun Dim(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit)
 @Composable
 private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
-    val cell: @Composable (AppInfo) -> Unit = { a ->
+    val size = p.drawerIconDp.dp
+    val cell: @Composable (AppInfo?) -> Unit = { a ->
+        val label = a?.label ?: str(R.string.drawer_dev)
         Column(
             Modifier.padding(4.dp).clip(RoundedCornerShape(14.dp))
-                .androidxCombined(onClick = { vm.drawer = false; Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) }, onLong = { vm.menuApp = a })
+                .androidxCombined(
+                    onClick = { vm.drawer = false; if (a == null) { vm.closeOverlays(); AppActions.developerOptions(ctx) } else Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) },
+                    onLong = { if (a != null) vm.menuApp = a },
+                )
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Image(a.icon, a.label, Modifier.size(p.drawerIconDp.dp))
-            if (p.drawerLabels) Txt(a.label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(p.drawerIconDp.dp + 24.dp).padding(top = 4.dp))
+            if (a != null) Image(a.icon, a.label, Modifier.size(size))
+            else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) { Glyph(G.GEAR, accent, size * 0.6f) }
+            if (p.drawerLabels) Txt(label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(size + 24.dp).padding(top = 4.dp))
         }
     }
+    // null = developer-options shortcut, always the first cell
+    val entries: List<AppInfo?> = if (p.drawerDev) listOf<AppInfo?>(null) + apps else apps
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
     Column(Modifier.fillMaxSize().background(Bg.copy(alpha = 0.96f)).padding(16.dp)) {
@@ -147,8 +155,8 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
             Txt(str(R.string.drawer_title, apps.size), 18, TextLo)
             GlyphButton(G.CLOSE, TextHi, { vm.drawer = false })
         }
-        if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(apps, key = { it.pkg }) { cell(it) } }
-        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(apps, key = { it.pkg }) { cell(it) } }
+        if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it?.pkg ?: "#dev" }) { cell(it) } }
+        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it?.pkg ?: "#dev" }) { cell(it) } }
     }
 }
 
@@ -408,6 +416,7 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 StepRow(str(if (p.drawerHorizontal) R.string.drawer_rows else R.string.drawer_cols), if (p.drawerSpan == 0) auto else "${p.drawerSpan}", accent,
                     { vm.set(K.drawerSpan, p.drawerSpan - 1) }, { vm.set(K.drawerSpan, p.drawerSpan + 1) }, icon = G.GRID)
                 StepRow(str(R.string.drawer_icon_size), "${p.drawerIconDp} dp", accent, { vm.set(K.drawerIcon, p.drawerIconDp - 8) }, { vm.set(K.drawerIcon, p.drawerIconDp + 8) }, icon = G.SIZE)
+                ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent, icon = G.GEAR) { vm.set(K.drawerDev, it) }
                 ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent, icon = G.INFO) { vm.set(K.drawerLabels, it) }
             }
             Section(str(R.string.sec_apps), accent, G.NAV) {

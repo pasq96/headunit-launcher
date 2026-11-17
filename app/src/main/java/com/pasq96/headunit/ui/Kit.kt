@@ -59,7 +59,8 @@ fun Txt(
 
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
-enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN }
+enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN,
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -92,9 +93,62 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
         G.PREV -> { drawPath(Path().apply { moveTo(w * 0.8f, h * 0.2f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.8f, h * 0.8f); close() }, c); drawRect(c, Offset(w * 0.17f, h * 0.2f), Size(w * 0.09f, h * 0.6f)) }
         G.SEEK_UP -> for (x in listOf(0.12f, 0.46f)) drawPath(Path().apply { moveTo(w * x, h * 0.22f); lineTo(w * (x + 0.4f), h * 0.5f); lineTo(w * x, h * 0.78f); close() }, c)
         G.SEEK_DOWN -> for (x in listOf(0.48f, 0.14f)) drawPath(Path().apply { moveTo(w * (x + 0.4f), h * 0.22f); lineTo(w * x, h * 0.5f); lineTo(w * (x + 0.4f), h * 0.78f); close() }, c)
+        G.INFO -> { drawCircle(c, w * 0.4f, style = Stroke(sw)); drawCircle(c, w * 0.05f, Offset(w * 0.5f, h * 0.32f)); drawLine(c, Offset(w * 0.5f, h * 0.46f), Offset(w * 0.5f, h * 0.7f), sw, StrokeCap.Round) }
+        G.TRASH -> {
+            drawLine(c, Offset(w * 0.18f, h * 0.27f), Offset(w * 0.82f, h * 0.27f), sw, StrokeCap.Round)
+            drawLine(c, Offset(w * 0.4f, h * 0.17f), Offset(w * 0.6f, h * 0.17f), sw, StrokeCap.Round)
+            drawPath(Path().apply { moveTo(w * 0.26f, h * 0.36f); lineTo(w * 0.31f, h * 0.84f); lineTo(w * 0.69f, h * 0.84f); lineTo(w * 0.74f, h * 0.36f) }, c, style = Stroke(sw, cap = StrokeCap.Round))
+        }
+        G.STOP -> { drawCircle(c, w * 0.4f, style = Stroke(sw)); drawRoundRect(c, Offset(w * 0.35f, h * 0.35f), Size(w * 0.3f, h * 0.3f), CornerRadius(w * 0.04f)) }
+        G.DATA -> {
+            drawOval(c, Offset(w * 0.22f, h * 0.14f), Size(w * 0.56f, h * 0.22f), style = Stroke(sw))
+            drawLine(c, Offset(w * 0.22f, h * 0.25f), Offset(w * 0.22f, h * 0.75f), sw); drawLine(c, Offset(w * 0.78f, h * 0.25f), Offset(w * 0.78f, h * 0.75f), sw)
+            drawArc(c, 0f, 180f, false, Offset(w * 0.22f, h * 0.64f), Size(w * 0.56f, h * 0.22f), style = Stroke(sw))
+        }
+        G.REFRESH -> {
+            drawArc(c, -60f, 280f, false, Offset(w * 0.18f, h * 0.18f), Size(w * 0.64f, h * 0.64f), style = Stroke(sw, cap = StrokeCap.Round))
+            drawPath(Path().apply { moveTo(w * 0.62f, h * 0.1f); lineTo(w * 0.86f, h * 0.2f); lineTo(w * 0.66f, h * 0.36f); close() }, c)
+        }
+        G.PIN -> { drawCircle(c, w * 0.17f, Offset(w * 0.5f, h * 0.3f)); drawLine(c, Offset(w * 0.5f, h * 0.45f), Offset(w * 0.5f, h * 0.86f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.3f, h * 0.5f), Offset(w * 0.7f, h * 0.5f), sw, StrokeCap.Round) }
+        G.NAV -> drawPath(Path().apply { moveTo(w * 0.5f, h * 0.1f); lineTo(w * 0.8f, h * 0.88f); lineTo(w * 0.5f, h * 0.68f); lineTo(w * 0.2f, h * 0.88f); close() }, c)
+        G.MUSIC -> { drawCircle(c, w * 0.15f, Offset(w * 0.34f, h * 0.76f)); drawLine(c, Offset(w * 0.48f, h * 0.76f), Offset(w * 0.48f, h * 0.16f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.48f, h * 0.16f), Offset(w * 0.76f, h * 0.3f), sw * 1.3f, StrokeCap.Round) }
+        G.THEME -> { drawCircle(c, w * 0.38f, style = Stroke(sw)); drawArc(c, 90f, 180f, true, Offset(w * 0.12f, h * 0.12f), Size(w * 0.76f, h * 0.76f)) }
+        G.GLOBE -> {
+            drawCircle(c, w * 0.4f, style = Stroke(sw)); drawOval(c, Offset(w * 0.34f, h * 0.1f), Size(w * 0.32f, h * 0.8f), style = Stroke(sw * 0.8f))
+            drawLine(c, Offset(w * 0.1f, h * 0.5f), Offset(w * 0.9f, h * 0.5f), sw * 0.8f)
+        }
+        G.LED -> { drawRoundRect(c, Offset(w * 0.08f, h * 0.3f), Size(w * 0.84f, h * 0.4f), CornerRadius(w * 0.08f), style = Stroke(sw)); for (i in 0..2) drawCircle(c, w * 0.06f, Offset(w * (0.28f + 0.22f * i), h * 0.5f)) }
+        G.DOCK -> { drawRoundRect(c, Offset(w * 0.1f, h * 0.15f), Size(w * 0.8f, h * 0.7f), CornerRadius(w * 0.06f), style = Stroke(sw)); drawRect(c, Offset(w * 0.1f, h * 0.65f), Size(w * 0.8f, h * 0.2f)) }
+        G.RADIO -> {
+            drawRoundRect(c, Offset(w * 0.1f, h * 0.34f), Size(w * 0.8f, h * 0.5f), CornerRadius(w * 0.08f), style = Stroke(sw))
+            drawCircle(c, w * 0.11f, Offset(w * 0.34f, h * 0.59f)); drawLine(c, Offset(w * 0.55f, h * 0.52f), Offset(w * 0.78f, h * 0.52f), sw, StrokeCap.Round)
+            drawLine(c, Offset(w * 0.55f, h * 0.66f), Offset(w * 0.78f, h * 0.66f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.3f, h * 0.34f), Offset(w * 0.75f, h * 0.12f), sw, StrokeCap.Round)
+        }
+        G.CLOCK -> { drawCircle(c, w * 0.4f, style = Stroke(sw)); drawLine(c, Offset(w * 0.5f, h * 0.5f), Offset(w * 0.5f, h * 0.26f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.5f, h * 0.5f), Offset(w * 0.68f, h * 0.6f), sw, StrokeCap.Round) }
+        G.POWER -> { drawArc(c, -60f, 300f, false, Offset(w * 0.18f, h * 0.2f), Size(w * 0.64f, h * 0.64f), style = Stroke(sw, cap = StrokeCap.Round)); drawLine(c, Offset(w * 0.5f, h * 0.1f), Offset(w * 0.5f, h * 0.5f), sw, StrokeCap.Round) }
+        G.SHIELD -> drawPath(Path().apply { moveTo(w * 0.5f, h * 0.1f); lineTo(w * 0.82f, h * 0.22f); lineTo(w * 0.78f, h * 0.55f); quadraticTo(w * 0.72f, h * 0.78f, w * 0.5f, h * 0.9f); quadraticTo(w * 0.28f, h * 0.78f, w * 0.22f, h * 0.55f); lineTo(w * 0.18f, h * 0.22f); close() }, c, style = Stroke(sw, cap = StrokeCap.Round))
+        G.SUN -> {
+            drawCircle(c, w * 0.17f)
+            for (k in 0 until 8) { val a = Math.toRadians(k * 45.0); val ca = cos(a).toFloat(); val sa = sin(a).toFloat(); drawLine(c, Offset(w / 2 + ca * w * 0.28f, h / 2 + sa * h * 0.28f), Offset(w / 2 + ca * w * 0.4f, h / 2 + sa * h * 0.4f), sw, StrokeCap.Round) }
+        }
+        G.WARN -> { drawPath(Path().apply { moveTo(w * 0.5f, h * 0.12f); lineTo(w * 0.9f, h * 0.82f); lineTo(w * 0.1f, h * 0.82f); close() }, c, style = Stroke(sw, cap = StrokeCap.Round)); drawLine(c, Offset(w * 0.5f, h * 0.4f), Offset(w * 0.5f, h * 0.6f), sw, StrokeCap.Round); drawCircle(c, w * 0.045f, Offset(w * 0.5f, h * 0.72f)) }
+        G.CHECK -> drawPath(Path().apply { moveTo(w * 0.2f, h * 0.52f); lineTo(w * 0.42f, h * 0.74f); lineTo(w * 0.8f, h * 0.28f) }, c, style = Stroke(sw * 1.2f, cap = StrokeCap.Round))
+        G.SIZE -> { drawRoundRect(c, Offset(w * 0.12f, h * 0.12f), Size(w * 0.76f, h * 0.76f), CornerRadius(w * 0.06f), style = Stroke(sw * 0.8f)); drawLine(c, Offset(w * 0.3f, h * 0.7f), Offset(w * 0.7f, h * 0.3f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.5f, h * 0.3f), Offset(w * 0.7f, h * 0.3f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.7f, h * 0.3f), Offset(w * 0.7f, h * 0.5f), sw, StrokeCap.Round) }
+        G.SWAP -> {
+            drawLine(c, Offset(w * 0.15f, h * 0.35f), Offset(w * 0.85f, h * 0.35f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.65f, h * 0.18f), Offset(w * 0.85f, h * 0.35f), sw, StrokeCap.Round)
+            drawLine(c, Offset(w * 0.85f, h * 0.65f), Offset(w * 0.15f, h * 0.65f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.35f, h * 0.82f), Offset(w * 0.15f, h * 0.65f), sw, StrokeCap.Round)
+        }
         G.CLOSE -> { drawLine(c, Offset(w * 0.25f, h * 0.25f), Offset(w * 0.75f, h * 0.75f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.75f, h * 0.25f), Offset(w * 0.25f, h * 0.75f), sw, StrokeCap.Round) }
     }
 }
+
+/** Label with an optional leading glyph, tinted like the text. */
+@Composable
+fun Labeled(label: String, icon: G?, color: Color, size: Int = 17, bold: Boolean = false, glyph: Dp = 26.dp, modifier: Modifier = Modifier) =
+    Row(modifier, Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+        if (icon != null) Glyph(icon, color, glyph)
+        Txt(label, size, color, bold)
+    }
 
 // ---- controls (touch-sized: 48dp+ targets) ----
 
@@ -103,12 +157,12 @@ fun GlyphButton(g: G, tint: Color, onClick: () -> Unit, size: Dp = 56.dp, glyph:
     Box(Modifier.size(size).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick), Alignment.Center) { Glyph(g, tint, glyph) }
 
 @Composable
-fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, onClick: () -> Unit) =
+fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, icon: G? = null, onClick: () -> Unit) =
     Box(
         Modifier.height(height).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
             .clickable(onClick = onClick).padding(horizontal = 20.dp),
         Alignment.Center,
-    ) { Txt(label, 16, if (selected) OnAccent else TextHi, bold = selected) }
+    ) { Labeled(label, icon, if (selected) OnAccent else TextHi, 16, selected, 22.dp) }
 
 @Composable
 fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
@@ -117,9 +171,9 @@ fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
     }
 
 @Composable
-fun ToggleRow(label: String, checked: Boolean, accent: Color, onChange: (Boolean) -> Unit) =
+fun ToggleRow(label: String, checked: Boolean, accent: Color, icon: G? = null, onChange: (Boolean) -> Unit) =
     Row(Modifier.fillMaxWidth().height(56.dp).clickable { onChange(!checked) }, Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Txt(label, 17)
+        Labeled(label, icon, TextHi, 17)
         Box(
             Modifier.width(56.dp).height(30.dp).clip(RoundedCornerShape(15.dp)).background(if (checked) accent else Surface2).padding(3.dp),
             if (checked) Alignment.CenterEnd else Alignment.CenterStart,
@@ -127,9 +181,9 @@ fun ToggleRow(label: String, checked: Boolean, accent: Color, onChange: (Boolean
     }
 
 @Composable
-fun StepRow(label: String, value: String, accent: Color, onMinus: () -> Unit, onPlus: () -> Unit) =
+fun StepRow(label: String, value: String, accent: Color, onMinus: () -> Unit, onPlus: () -> Unit, icon: G? = null) =
     Row(Modifier.fillMaxWidth().height(56.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Txt(label, 17)
+        Labeled(label, icon, TextHi, 17)
         Row(verticalAlignment = Alignment.CenterVertically) {
             StepBtn("−", onMinus)
             Txt(value, 18, accent, bold = true, modifier = Modifier.width(88.dp), align = TextAlign.Center)
@@ -164,8 +218,8 @@ fun SimpleSlider(value: Float, accent: Color, onChange: (Float) -> Unit, onDone:
 }
 
 @Composable
-fun Section(title: String, accent: Color, content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-    Txt(title.uppercase(), 13, accent, bold = true)
+fun Section(title: String, accent: Color, icon: G? = null, content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
+    Labeled(title.uppercase(), icon, accent, 13, true, 20.dp)
     Spacer(Modifier.height(6.dp))
     content()
 }

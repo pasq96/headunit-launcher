@@ -131,4 +131,15 @@
     <string name="picker_show_all">Show all apps</string>
     <string name="picker_empty">No app found: turn on “Show all apps”</string>
     <string name="picker_current">In use</string>
+    <string name="menu_info">App info</string>
+    <string name="menu_clear_cache">Clear cache</string>
+    <string name="menu_force_stop">Force stop</string>
+    <string name="menu_clear_data">Clear data</string>
+    <string name="menu_uninstall">Uninstall</string>
+    <string name="confirm_yes">Confirm</string>
+    <string name="confirm_force_stop">Stop %1$s? Unsaved data will be lost.</string>
+    <string name="confirm_clear_data">Delete all data of %1$s? This cannot be undone.</string>
+    <string name="confirm_uninstall">Uninstall %1$s?</string>
+    <string name="msg_done">Done</string>
+    <string name="msg_use_settings">Not allowed from here: opened app info</string>
 </resources>

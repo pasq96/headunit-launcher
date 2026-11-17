@@ -94,6 +94,8 @@ mostrato in Impostazioni). Se lo stato è sconosciuto resta scuro. I nomi dei se
 **App**: navigatore e player predefiniti scelti da un selettore che mostra solo le app che dichiarano navigazione (geo:, intent
 maps) o musica (MediaBrowser, categoria music); "Mostra tutte" per l'elenco completo. Stessa scelta dal menu di pressione lunga.
 
+**Menu app (pressione lunga)**: info, pin dock, imposta navigatore/player, poi le azioni distruttive in rosso dalla più lieve alla più severa: cancella cache, forza chiusura, cancella dati, disinstalla (conferma per le ultime tre; disinstalla nascosto per le app di sistema). Senza root o adb uid, cache e dati aprono le info app di Android e la chiusura termina solo i processi in background. Ogni etichetta ha la propria icona.
+
 Inoltre: modalità player (widget, app embedded, radio), radio (passo FM/AM, tasti volante), orologio 12/24h, indicatori di rete,
 sensori, soglia temperatura, avvio automatico, ripristino al risveglio, stato dei permessi.
 

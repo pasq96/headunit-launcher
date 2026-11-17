@@ -131,4 +131,15 @@
     <string name="picker_show_all">Mostra tutte le app</string>
     <string name="picker_empty">Nessuna app trovata: attiva «Mostra tutte le app»</string>
     <string name="picker_current">In uso</string>
+    <string name="menu_info">Info app</string>
+    <string name="menu_clear_cache">Cancella cache</string>
+    <string name="menu_force_stop">Forza chiusura</string>
+    <string name="menu_clear_data">Cancella dati</string>
+    <string name="menu_uninstall">Disinstalla</string>
+    <string name="confirm_yes">Conferma</string>
+    <string name="confirm_force_stop">Chiudere %1$s? I dati non salvati andranno persi.</string>
+    <string name="confirm_clear_data">Cancellare tutti i dati di %1$s? L\'azione non è reversibile.</string>
+    <string name="confirm_uninstall">Disinstallare %1$s?</string>
+    <string name="msg_done">Fatto</string>
+    <string name="msg_use_settings">Operazione non consentita da qui: aperte le info app</string>
 </resources>

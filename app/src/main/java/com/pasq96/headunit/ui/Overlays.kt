@@ -8,6 +8,15 @@ import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -15,6 +24,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -48,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,8 +70,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.R
 import com.pasq96.headunit.data.ACCENTS
+import com.pasq96.headunit.data.accentArgb
 import com.pasq96.headunit.data.AppActions
 import com.pasq96.headunit.data.AppInfo
+import androidx.compose.ui.draw.alpha
+import com.pasq96.headunit.data.orderedApps
+import com.pasq96.headunit.data.AppSort
 import com.pasq96.headunit.data.DimMode
 import com.pasq96.headunit.data.DockPos
 import com.pasq96.headunit.data.K
@@ -114,12 +130,14 @@ private fun EmergencyButton(text: String, icon: G, modifier: Modifier, onClick: 
 fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
-    val accent = Color(ACCENTS[p.accent])
+    val accent = Color(p.accentArgb)
     if (vm.drawer) Drawer(vm, p, apps, accent)
     if (vm.tools) ToolsPanel(vm, p, accent)
     if (vm.settings) SettingsPanel(vm, p, apps, accent)
     vm.menuApp?.let { AppMenu(vm, p, it, accent) }
     vm.picker?.let { AppPicker(vm, p, apps, it, accent) }
+    if (vm.colorPicker) ColorPicker(vm, p, accent)
+    if (vm.manager) DrawerManager(vm, p, apps, accent)
 }
 
 @Composable
@@ -128,37 +146,54 @@ private fun Dim(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit)
 
 // ---- app drawer: vertical or horizontal grid, fixed span or auto ----
 
+private sealed interface DrawerCell {
+    val key: String
+    data object Tools : DrawerCell { override val key = "#tools" }
+    data object Dev : DrawerCell { override val key = "#dev" }
+    class App(val info: AppInfo) : DrawerCell { override val key get() = info.pkg }
+}
+
 @Composable
 private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
     val size = p.drawerIconDp.dp
-    val cell: @Composable (AppInfo?) -> Unit = { a ->
-        val label = a?.label ?: str(R.string.drawer_dev)
+    val cell: @Composable (DrawerCell) -> Unit = { c ->
+        val label = when (c) { DrawerCell.Tools -> str(R.string.tools_title); DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.App -> c.info.label }
         Column(
             Modifier.padding(4.dp).clip(RoundedCornerShape(14.dp))
                 .androidxCombined(
-                    onClick = { vm.drawer = false; if (a == null) { vm.closeOverlays(); AppActions.developerOptions(ctx) } else Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) },
-                    onLong = { if (a != null) vm.menuApp = a },
+                    onClick = {
+                        vm.drawer = false
+                        when (c) {
+                            DrawerCell.Tools -> vm.tools = true
+                            DrawerCell.Dev -> { vm.closeOverlays(); AppActions.developerOptions(ctx) }
+                            is DrawerCell.App -> { vm.recordUse(c.info.pkg); Embedder.launch(ctx, c.info.pkg, vm.boundsFor(c.info.pkg)) }
+                        }
+                    },
+                    onLong = { if (c is DrawerCell.App) vm.menuApp = c.info },
                 )
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (a != null) Image(a.icon, a.label, Modifier.size(size))
-            else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) { Glyph(G.GEAR, accent, size * 0.6f) }
+            if (c is DrawerCell.App) Image(c.info.icon, c.info.label, Modifier.size(size))
+            else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) {
+                Glyph(if (c == DrawerCell.Tools) G.GAUGE else G.GEAR, accent, size * 0.6f)
+            }
             if (p.drawerLabels) Txt(label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(size + 24.dp).padding(top = 4.dp))
         }
     }
-    // null = developer-options shortcut, always the first cell
-    val entries: List<AppInfo?> = if (p.drawerDev) listOf<AppInfo?>(null) + apps else apps
+    // system shortcuts come first: Car Tools (no dock button anymore), then developer options when enabled
+    val shown = remember(apps, p.hidden, p.sort, p.customOrder, p.usage) { orderedApps(apps, p) }
+    val entries: List<DrawerCell> = listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) }
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
     Column(Modifier.fillMaxSize().background(Bg.copy(alpha = 0.96f)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Txt(str(R.string.drawer_title, apps.size), 18, TextLo)
+            Txt(str(R.string.drawer_title), 24, TextHi, bold = true)
             GlyphButton(G.CLOSE, TextHi, { vm.drawer = false })
         }
-        if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it?.pkg ?: "#dev" }) { cell(it) } }
-        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it?.pkg ?: "#dev" }) { cell(it) } }
+        if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it) } }
+        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it) } }
     }
 }
 
@@ -201,8 +236,11 @@ private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
             }
             MenuBtn(str(R.string.menu_info), TextHi, G.INFO) { vm.closeOverlays(); AppActions.info(ctx, a.pkg) }
             MenuBtn(str(if (a.pkg in p.pinned) R.string.menu_unpin else R.string.menu_pin), accent, G.PIN) { vm.togglePin(a.pkg); close() }
-            MenuBtn(str(R.string.menu_set_nav), accent, if (a.pkg == p.navPkg) G.CHECK else G.NAV) { vm.set(K.nav, a.pkg); close() }
-            MenuBtn(str(R.string.menu_set_player), accent, if (a.pkg == p.mediaPkg) G.CHECK else G.MUSIC) { vm.set(K.media, a.pkg); close() }
+            MenuBtn(str(R.string.menu_hide), TextHi, G.EYE_OFF) { vm.toggleHidden(a.pkg); close() }
+            MenuBtn(str(R.string.menu_move), TextHi, G.SWAP) { vm.enableCustomOrder(); vm.manager = true; close() }
+            // role shortcuts only for apps that actually declare navigation / music
+            if (a.nav) MenuBtn(str(R.string.menu_set_nav), accent, if (a.pkg == p.navPkg) G.CHECK else G.NAV) { vm.set(K.nav, a.pkg); close() }
+            if (a.music) MenuBtn(str(R.string.menu_set_player), accent, if (a.pkg == p.mediaPkg) G.CHECK else G.MUSIC) { vm.set(K.media, a.pkg); close() }
             Box(Modifier.fillMaxWidth().height(1.dp).background(TextLo.copy(alpha = 0.3f)))
             val c = confirm
             if (c == null) {
@@ -269,6 +307,99 @@ private fun AppPicker(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, kind: Pick
     }
 }
 
+// ---- drawer manager: hide apps, reorder in custom mode ----
+
+@Composable
+private fun DrawerManager(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
+    val list = remember(apps, p.hidden, p.sort, p.customOrder, p.usage) { orderedApps(apps, p, includeHidden = true) }
+    val close = { vm.manager = false }
+    Dim(close) {
+        Column(
+            Modifier.align(Alignment.Center).width(560.dp).fillMaxHeight(0.9f).clip(RoundedCornerShape(20.dp)).background(Surface)
+                .pointerInput(Unit) { detectTapGestures { } }.padding(20.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Txt(str(R.string.manage_title), 22, bold = true); GlyphButton(G.CLOSE, TextHi, close)
+            }
+            Txt(str(if (p.sort == AppSort.CUSTOM) R.string.manage_hint_custom else R.string.manage_hint), 14, TextLo, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(list, key = { it.pkg }) { a ->
+                    val hidden = a.pkg in p.hidden
+                    Row(Modifier.fillMaxWidth().height(60.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                        Image(a.icon, null, Modifier.size(40.dp).alpha(if (hidden) 0.4f else 1f))
+                        Box(Modifier.weight(1f)) { Txt(a.label, 17, if (hidden) TextLo else TextHi) }
+                        if (p.sort == AppSort.CUSTOM) {
+                            GlyphButton(G.UP, TextHi, { vm.moveInOrder(a.pkg, -1) }, size = 48.dp, glyph = 28.dp)
+                            GlyphButton(G.DOWN, TextHi, { vm.moveInOrder(a.pkg, 1) }, size = 48.dp, glyph = 28.dp)
+                        }
+                        GlyphButton(if (hidden) G.EYE_OFF else G.EYE, if (hidden) TextLo else accent, { vm.toggleHidden(a.pkg) }, size = 48.dp, glyph = 28.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---- custom accent colour: saturation/value square + hue bar ----
+
+@Composable
+private fun ColorPicker(vm: LauncherHub, p: Prefs, accent: Color) {
+    val init = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(p.accentArgb, it) } }
+    var h by remember { mutableFloatStateOf(init[0]) }
+    var sat by remember { mutableFloatStateOf(init[1]) }
+    var v by remember { mutableFloatStateOf(init[2].coerceAtLeast(MIN_V)) }
+    var sv by remember { mutableStateOf(IntSize(1, 1)) }
+    var hb by remember { mutableIntStateOf(1) }
+    val color = Color.hsv(h, sat, v)
+    val close = { vm.colorPicker = false }
+    val setSv = { o: Offset -> sat = (o.x / sv.width).coerceIn(0f, 1f); v = (1f - o.y / sv.height).coerceIn(MIN_V, 1f) }
+    val setHue = { x: Float -> h = (x / hb * 360f).coerceIn(0f, 359.9f) }
+    val ring = TextHi
+    Dim(close) {
+        Column(
+            Modifier.align(Alignment.Center).width(460.dp).clip(RoundedCornerShape(20.dp)).background(Surface)
+                .pointerInput(Unit) { detectTapGestures { } }.padding(20.dp),
+            Arrangement.spacedBy(14.dp),
+        ) {
+            Labeled(str(R.string.color_pick_title), G.THEME, TextHi, 22, true, 30.dp)
+            Canvas(
+                Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)).onSizeChanged { sv = it }
+                    .pointerInput(Unit) { detectTapGestures { setSv(it) } }
+                    .pointerInput(Unit) { detectDragGestures { c, _ -> c.consume(); setSv(c.position) } },
+            ) {
+                drawRect(Brush.horizontalGradient(listOf(Color.White, Color.hsv(h, 1f, 1f))))
+                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                val c = Offset(sat * size.width, (1f - v) * size.height)
+                drawCircle(Color.Black, 17f, c, style = Stroke(5f)); drawCircle(Color.White, 14f, c, style = Stroke(4f))
+            }
+            Canvas(
+                Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).onSizeChanged { hb = it.width.coerceAtLeast(1) }
+                    .pointerInput(Unit) { detectTapGestures { setHue(it.x) } }
+                    .pointerInput(Unit) { detectHorizontalDragGestures { c, _ -> c.consume(); setHue(c.position.x) } },
+            ) {
+                drawRect(Brush.horizontalGradient((0..6).map { Color.hsv(it * 60f % 360f, 1f, 1f) }))
+                val x = h / 360f * size.width
+                drawCircle(ring, 17f, Offset(x, size.height / 2), style = Stroke(5f))
+            }
+            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(14.dp), Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).background(color))
+                Txt("#%06X".format(color.toArgb() and 0xFFFFFF), 20, TextHi, bold = true)
+            }
+            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = close), Alignment.Center) { Txt(str(R.string.cancel), 18, TextLo, bold = true) }
+                Box(
+                    Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(color)
+                        .clickable { vm.set(K.accentCustom, color.toArgb()); vm.set(K.accent, ACCENTS.size); close() },
+                    Alignment.Center,
+                ) { Txt(str(R.string.color_apply), 18, OnAccent, bold = true) }
+            }
+        }
+    }
+}
+
+// minimum brightness keeps text on accent fills and the accent itself readable on the dark theme
+private const val MIN_V = 0.35f
+
 // ---- quick tools ----
 
 @Composable
@@ -298,37 +429,25 @@ private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
             Section(str(R.string.sec_screen), accent, G.SUN) {
                 if (!CarTools.canWriteSettings(ctx)) Chip(str(R.string.write_grant), false, accent, icon = G.SUN) { vm.closeOverlays(); openWriteSettings(ctx) }
                 else SimpleSlider(bright, accent, { bright = it; CarTools.setBrightness(ctx, (it * 255).roundToInt()) })
-                Labeled(str(R.string.theme_label), G.THEME, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
-                ThemeChips(vm, p, accent)
-                Labeled(str(R.string.dim_mode), G.SUN, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
-                DimChips(vm, p, accent)
             }
-            Section(str(R.string.sec_panels), accent, G.SPLIT) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(str(R.string.panels_split), p.panels == Panels.BOTH, accent, icon = G.SPLIT) { vm.setEnum(K.panels, Panels.BOTH) }
-                    Chip(str(R.string.panels_nav_only), p.panels == Panels.NAV, accent, icon = G.SOLO_L) { vm.setEnum(K.panels, Panels.NAV) }
-                    Chip(str(R.string.panels_player_only), p.panels == Panels.MEDIA, accent, icon = G.SOLO_R) { vm.setEnum(K.panels, Panels.MEDIA) }
-                }
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(str(R.string.mode_widget), p.mediaMode == MediaMode.WIDGET, accent, icon = G.MUSIC) { vm.setEnum(K.mode, MediaMode.WIDGET) }
-                    Chip(str(R.string.mode_app), p.mediaMode == MediaMode.EMBED, accent, icon = G.GRID) { vm.setEnum(K.mode, MediaMode.EMBED) }
-                    Chip(str(R.string.mode_radio), p.mediaMode == MediaMode.RADIO, accent, icon = G.RADIO) { vm.setEnum(K.mode, MediaMode.RADIO) }
-                }
-            }
-            Section(str(R.string.sec_emergency), Danger, G.WARN) { EmergencyBar(vm) }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ThemeChips(vm: LauncherHub, p: Prefs, accent: Color) = Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun ChipRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) =
+    FlowRow(modifier, Arrangement.spacedBy(8.dp), Arrangement.spacedBy(8.dp)) { content() }
+
+@Composable
+private fun ThemeChips(vm: LauncherHub, p: Prefs, accent: Color) = ChipRow {
     Chip(str(R.string.theme_dark), p.theme == ThemeMode.DARK, accent, icon = G.THEME) { vm.setEnum(K.theme, ThemeMode.DARK) }
     Chip(str(R.string.theme_light), p.theme == ThemeMode.LIGHT, accent, icon = G.SUN) { vm.setEnum(K.theme, ThemeMode.LIGHT) }
     Chip(str(R.string.theme_auto), p.theme == ThemeMode.AUTO, accent, icon = G.LED) { vm.setEnum(K.theme, ThemeMode.AUTO) }
 }
 
 @Composable
-private fun DimChips(vm: LauncherHub, p: Prefs, accent: Color) = Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun DimChips(vm: LauncherHub, p: Prefs, accent: Color) = ChipRow {
     Chip(str(R.string.dim_off), p.dimMode == DimMode.OFF, accent) { vm.setEnum(K.dim, DimMode.OFF) }
     Chip(str(R.string.dim_on), p.dimMode == DimMode.ON, accent) { vm.setEnum(K.dim, DimMode.ON) }
     Chip(str(R.string.dim_auto), p.dimMode == DimMode.AUTO, accent) { vm.setEnum(K.dim, DimMode.AUTO) }
@@ -365,21 +484,26 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
             }
             EmergencyBar(vm)
 
+            val blocks: List<@Composable () -> Unit> = listOf(
+                {
             Section(str(R.string.sec_look), accent, G.THEME) {
                 Labeled(str(R.string.theme_label), G.THEME, TextLo, 15); ThemeChips(vm, p, accent)
                 Labeled(str(R.string.lang_label), G.GLOBE, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     Chip(str(R.string.lang_it), p.lang == Lang.IT, accent, icon = G.GLOBE) { vm.setEnum(K.lang, Lang.IT) }
                     Chip(str(R.string.lang_en), p.lang == Lang.EN, accent, icon = G.GLOBE) { vm.setEnum(K.lang, Lang.EN) }
                 }
                 Labeled(str(R.string.accent_label), G.THEME, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     ACCENTS.forEachIndexed { i, c -> Swatch(Color(c), p.accent == i) { vm.set(K.accent, i) } }
+                    RainbowSwatch(p.accent == ACCENTS.size, Color(p.accentCustom)) { vm.colorPicker = true }
                 }
             }
+                },
+                {
             Section(str(R.string.sec_led), accent, G.LED) {
                 Labeled(str(R.string.led_source), G.LED, TextLo, 15)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     Chip(str(R.string.src_all), p.ledSource == LedSource.AUTO, accent) { vm.setEnum(K.ledSource, LedSource.AUTO) }
                     Chip(str(R.string.src_broadcast), p.ledSource == LedSource.BROADCAST, accent) { vm.setEnum(K.ledSource, LedSource.BROADCAST) }
                     Chip(str(R.string.src_setting), p.ledSource == LedSource.SETTING, accent) { vm.setEnum(K.ledSource, LedSource.SETTING) }
@@ -397,8 +521,17 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 Txt(str(R.string.dim_strength, (p.nightAlpha * 100).roundToInt()), 15, TextLo)
                 SimpleSlider((p.nightAlpha - 0.1f) / 0.75f, accent, { vm.set(K.nightAlpha, 0.1f + it * 0.75f) })
             }
+                },
+                {
             Section(str(R.string.sec_layout), accent, G.SPLIT) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Labeled(str(R.string.sec_panels), G.SPLIT, TextLo, 15)
+                ChipRow {
+                    Chip(str(R.string.panels_split), p.panels == Panels.BOTH, accent, icon = G.SPLIT) { vm.setEnum(K.panels, Panels.BOTH) }
+                    Chip(str(R.string.panels_nav_only), p.panels == Panels.NAV, accent, icon = G.SOLO_L) { vm.setEnum(K.panels, Panels.NAV) }
+                    Chip(str(R.string.panels_player_only), p.panels == Panels.MEDIA, accent, icon = G.SOLO_R) { vm.setEnum(K.panels, Panels.MEDIA) }
+                }
+                Labeled(str(R.string.dock_pos), G.DOCK, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                ChipRow {
                     Chip(str(R.string.dock_bottom), p.dock == DockPos.BOTTOM, accent) { vm.setEnum(K.dock, DockPos.BOTTOM) }
                     Chip(str(R.string.dock_left), p.dock == DockPos.LEFT, accent) { vm.setEnum(K.dock, DockPos.LEFT) }
                     Chip(str(R.string.dock_right), p.dock == DockPos.RIGHT, accent) { vm.setEnum(K.dock, DockPos.RIGHT) }
@@ -411,51 +544,72 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                     { vm.set(K.ratio, p.ratio - 0.05f) }, { vm.set(K.ratio, p.ratio + 0.05f) }, icon = G.SPLIT)
                 ToggleRow(str(R.string.swap_panels), p.swapPanels, accent, icon = G.SWAP) { vm.set(K.swap, it) }
             }
+                },
+                {
             Section(str(R.string.sec_drawer), accent, G.GRID) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     Chip(str(R.string.drawer_vertical), !p.drawerHorizontal, accent) { vm.set(K.drawerH, false) }
                     Chip(str(R.string.drawer_horizontal), p.drawerHorizontal, accent) { vm.set(K.drawerH, true) }
                 }
                 StepRow(str(if (p.drawerHorizontal) R.string.drawer_rows else R.string.drawer_cols), if (p.drawerSpan == 0) auto else "${p.drawerSpan}", accent,
                     { vm.set(K.drawerSpan, p.drawerSpan - 1) }, { vm.set(K.drawerSpan, p.drawerSpan + 1) }, icon = G.GRID)
                 StepRow(str(R.string.drawer_icon_size), "${p.drawerIconDp} dp", accent, { vm.set(K.drawerIcon, p.drawerIconDp - 8) }, { vm.set(K.drawerIcon, p.drawerIconDp + 8) }, icon = G.SIZE)
+                Labeled(str(R.string.drawer_sort), G.GRID, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                ChipRow {
+                    Chip(str(R.string.sort_alpha), p.sort == AppSort.ALPHA, accent, icon = G.GRID) { vm.setEnum(K.sort, AppSort.ALPHA) }
+                    Chip(str(R.string.sort_usage), p.sort == AppSort.USAGE, accent, icon = G.CLOCK) { vm.setEnum(K.sort, AppSort.USAGE) }
+                    Chip(str(R.string.sort_custom), p.sort == AppSort.CUSTOM, accent, icon = G.SWAP) { vm.enableCustomOrder() }
+                }
+                ChooseRow(str(R.string.drawer_manage), str(R.string.drawer_hidden_count, p.hidden.size), accent, icon = G.EYE_OFF) { vm.manager = true }
                 ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent, icon = G.GEAR) { vm.set(K.drawerDev, it) }
                 ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent, icon = G.INFO) { vm.set(K.drawerLabels, it) }
             }
+                },
+                {
             Section(str(R.string.sec_apps), accent, G.NAV) {
                 ChooseRow(str(R.string.navigator), appLabel(p.navPkg) ?: notSet, accent, icon = G.NAV) { vm.picker = PickerKind.NAV }
                 ChooseRow(str(R.string.player), appLabel(p.mediaPkg) ?: notSet, accent, icon = G.MUSIC) { vm.picker = PickerKind.PLAYER }
                 Txt(str(R.string.apps_hint), 14, TextLo)
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow(Modifier.padding(top = 8.dp)) {
                     Chip(str(R.string.mode_widget), p.mediaMode == MediaMode.WIDGET, accent, icon = G.MUSIC) { vm.setEnum(K.mode, MediaMode.WIDGET) }
                     Chip(str(R.string.mode_app_embedded), p.mediaMode == MediaMode.EMBED, accent, icon = G.GRID) { vm.setEnum(K.mode, MediaMode.EMBED) }
                     Chip(str(R.string.mode_radio_native), p.mediaMode == MediaMode.RADIO, accent, icon = G.RADIO) { vm.setEnum(K.mode, MediaMode.RADIO) }
                 }
             }
+                },
+                {
             Section(str(R.string.sec_radio), accent, G.RADIO) {
                 ToggleRow(str(R.string.swc_seek), p.swcSeek, accent, icon = G.SEEK_UP) { vm.set(K.swcSeek, it) }
                 Labeled(str(R.string.fm_step), G.RADIO, TextLo, 15)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     listOf(50, 100, 200).forEach { k -> Chip("$k kHz", p.fmStepKhz == k, accent) { vm.set(K.fmStep, k) } }
                 }
                 Labeled(str(R.string.am_step), G.RADIO, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow {
                     listOf(9, 10).forEach { k -> Chip("$k kHz", p.amStepKhz == k, accent) { vm.set(K.amStep, k) } }
                 }
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipRow(Modifier.padding(top = 8.dp)) {
                     Chip(str(R.string.presets_import), false, accent, icon = G.DATA) { vm.importStockPresets() }
                     Chip(str(R.string.radio_open_stock), false, accent, icon = G.RADIO) { vm.closeOverlays(); vm.radio.openStockApp() }
                 }
             }
+                },
+                {
             Section(str(R.string.sec_dock), accent, G.DOCK) {
                 ToggleRow(str(R.string.dock_overlay), p.dockOverlay, accent, icon = G.DOCK) { vm.set(K.dockOverlay, it) }
                 ToggleRow(str(R.string.clock_24h), p.clock24h, accent, icon = G.CLOCK) { vm.set(K.clock24, it) }
-                ToggleRow(str(R.string.show_links), p.showLinks, accent, icon = G.GLOBE) { vm.set(K.links, it) }
+                ToggleRow(str(R.string.show_date), p.showDate, accent, icon = G.CLOCK) { vm.set(K.date, it) }
+                ToggleRow(str(R.string.show_wifi), p.showWifi, accent, icon = G.WIFI) { vm.set(K.wifi, it) }
+                ToggleRow(str(R.string.show_bt), p.showBt, accent, icon = G.BT) { vm.set(K.bt, it) }
             }
+                },
+                {
             Section(str(R.string.sec_cartools), accent, G.GAUGE) {
                 StepRow(str(R.string.sensor_interval), "${p.toolsIntervalSec} s", accent, { vm.set(K.interval, p.toolsIntervalSec - 1) }, { vm.set(K.interval, p.toolsIntervalSec + 1) }, icon = G.CLOCK)
                 StepRow(str(R.string.temp_warn), "${p.tempWarnC} °C", accent, { vm.set(K.tempWarn, p.tempWarnC - 5) }, { vm.set(K.tempWarn, p.tempWarnC + 5) }, icon = G.GAUGE)
             }
+                },
+                {
             Section(str(R.string.sec_boot), accent, G.POWER) {
                 ToggleRow(str(R.string.auto_start), p.autoStart, accent, icon = G.NAV) { vm.set(K.auto, it) }
                 StepRow(str(R.string.auto_start_delay), "${p.autoStartDelaySec} s", accent, { vm.set(K.autoDelay, p.autoStartDelaySec - 1) }, { vm.set(K.autoDelay, p.autoStartDelaySec + 1) }, icon = G.CLOCK)
@@ -464,6 +618,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 ToggleRow(str(R.string.resume_on_wake), p.resumeOnWake, accent, icon = G.POWER) { vm.set(K.resume, it) }
                 StepRow(str(R.string.wake_delay), "${p.wakeDelaySec} s", accent, { vm.set(K.wakeDelay, p.wakeDelaySec - 1) }, { vm.set(K.wakeDelay, p.wakeDelaySec + 1) }, icon = G.CLOCK)
             }
+                },
+                {
             Section(str(R.string.sec_autogrant), accent, G.SHIELD) {
                 var busy by remember { mutableStateOf(false) }
                 var report by remember { mutableStateOf<PermissionGranter.Report?>(null) }
@@ -480,6 +636,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                     r.steps.forEach { (label, ok) -> Stat(str(label), str(if (ok) R.string.perm_ok else R.string.autogrant_fail), if (ok) accent else Warn, if (ok) G.CHECK else G.WARN) }
                 }
             }
+                },
+                {
             Section(str(R.string.sec_perms), accent, G.SHIELD) {
                 val overlay = remember(tick) { Settings.canDrawOverlays(ctx) }
                 val write = remember(tick) { CarTools.canWriteSettings(ctx) }
@@ -491,6 +649,14 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 PermRow(str(R.string.perm_usage), null, accent, icon = G.CLOCK) { vm.closeOverlays(); openUsageAccess(ctx) }
                 Stat(str(R.string.freeform_windows), str(if (freeform) R.string.freeform_on else R.string.freeform_off), if (freeform) accent else Warn, icon = G.SPLIT)
             }
+                },
+            )
+            if (LocalConfiguration.current.screenWidthDp >= 800) {
+                Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(32.dp)) {
+                    Column(Modifier.weight(1f)) { blocks.take(5).forEach { it() } }
+                    Column(Modifier.weight(1f)) { blocks.drop(5).forEach { it() } }
+                }
+            } else blocks.forEach { it() }
         }
     }
 }

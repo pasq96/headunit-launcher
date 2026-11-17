@@ -12,7 +12,7 @@
     <string name="media_open_source">Open source app</string>
     <string name="emg_android_settings">Android settings</string>
     <string name="emg_default_apps">Default apps (change launcher)</string>
-    <string name="drawer_title">Apps (%1$d)  ·  long-press to pin / assign</string>
+    <string name="drawer_title">Applications</string>
     <string name="menu_pin">Pin to dock</string>
     <string name="menu_unpin">Remove from dock</string>
     <string name="menu_set_nav">Set as navigator</string>
@@ -85,7 +85,6 @@
     <string name="sec_dock">Dock</string>
     <string name="dock_overlay">Dock always above apps (overlay, needs freeform)</string>
     <string name="clock_24h">24-hour clock</string>
-    <string name="show_links">WiFi / Hotspot / Bluetooth indicators</string>
     <string name="sec_cartools">Car Tools</string>
     <string name="sensor_interval">Sensor refresh</string>
     <string name="temp_warn">CPU temperature alarm</string>
@@ -161,4 +160,21 @@
     <string name="grant_battery">Battery optimization exemption</string>
     <string name="grant_notif">Notifications</string>
     <string name="grant_devopts">Developer options enabled</string>
+    <string name="dock_pos">Dock position</string>
+    <string name="color_pick_title">Custom colour</string>
+    <string name="color_apply">Apply</string>
+    <string name="show_date">Date under the clock</string>
+    <string name="drawer_sort">App order</string>
+    <string name="sort_alpha">A–Z</string>
+    <string name="sort_usage">Most used</string>
+    <string name="sort_custom">Custom</string>
+    <string name="drawer_manage">Manage drawer apps</string>
+    <string name="drawer_hidden_count">%1$d hidden</string>
+    <string name="manage_title">Drawer apps</string>
+    <string name="manage_hint">Tap the eye to hide or show. Choose "Custom" to reorder.</string>
+    <string name="manage_hint_custom">Tap the eye to hide or show, use the arrows to reorder.</string>
+    <string name="menu_hide">Hide from drawer</string>
+    <string name="menu_move">Move</string>
+    <string name="show_wifi">WiFi / Hotspot icon</string>
+    <string name="show_bt">Bluetooth icon</string>
 </resources>

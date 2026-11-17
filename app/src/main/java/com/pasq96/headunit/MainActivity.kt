@@ -3,6 +3,9 @@ package com.pasq96.headunit
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
+import androidx.compose.runtime.snapshotFlow
+import android.provider.Settings
+import android.net.Uri
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
@@ -26,6 +29,7 @@ import kotlinx.coroutines.launch
 
 // This launcher never requests audio focus and never plays sounds: radio, music and Vela voice prompts keep priority.
 class MainActivity : ComponentActivity() {
+    private var overlayAsked = false
     private val vm: LauncherHub get() = (application as HeadUnitApp).hub
     private var wakeJob: Job? = null
 
@@ -55,6 +59,16 @@ class MainActivity : ComponentActivity() {
                 .distinctUntilChanged().collect { (on, a) -> CarTools.setNightOverlay(this@MainActivity, on, a) }
         }
         lifecycleScope.launch { vm.prefs.map { it.dockOverlay }.distinctUntilChanged().collect { OverlayService.sync(this@MainActivity) } }
+
+        // Inline panels end up behind freeform apps: without the overlay permission ask for it once per run.
+        lifecycleScope.launch {
+            snapshotFlow { vm.hasOverlay() && !vm.overlayInWindow }.collect { inline ->
+                if (inline && !overlayAsked && Embedder.freeformEnabled(this@MainActivity) && !Settings.canDrawOverlays(this@MainActivity)) {
+                    overlayAsked = true
+                    runCatching { startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))) }
+                }
+            }
+        }
 
         handleIntent(intent)
         if (savedInstanceState == null) autoStart()

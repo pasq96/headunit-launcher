@@ -39,3 +39,14 @@ object AppRepo {
     private fun activityPkgs(pm: PackageManager, i: Intent): Set<String> =
         pm.queryIntentActivities(i, 0).map { it.activityInfo.packageName }.toSet()
 }
+
+/** Drawer order per [Prefs.sort]; custom order lists known packages first, unknown ones follow alphabetically. */
+fun orderedApps(apps: List<AppInfo>, p: Prefs, includeHidden: Boolean = false): List<AppInfo> {
+    val visible = if (includeHidden) apps else apps.filter { it.pkg !in p.hidden }
+    val alpha = visible.sortedBy { it.label.lowercase() }
+    return when (p.sort) {
+        AppSort.ALPHA -> alpha
+        AppSort.USAGE -> alpha.sortedByDescending { p.usage[it.pkg] ?: 0 } // stable: ties stay alphabetical
+        AppSort.CUSTOM -> { val rank = p.customOrder.withIndex().associate { it.value to it.index }; alpha.sortedBy { rank[it.pkg] ?: Int.MAX_VALUE } }
+    }
+}

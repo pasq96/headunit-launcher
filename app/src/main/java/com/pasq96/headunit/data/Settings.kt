@@ -17,12 +17,16 @@ enum class DockPos { BOTTOM, LEFT, RIGHT }
 enum class MediaMode { EMBED, WIDGET, RADIO }
 enum class Panels { BOTH, NAV, MEDIA }
 enum class ThemeMode { DARK, LIGHT, AUTO }          // AUTO: dark while the button LEDs are on, light when off
+enum class AppSort { ALPHA, USAGE, CUSTOM }            // drawer order
 enum class DimMode { OFF, ON, AUTO }                // dark overlay; AUTO follows the button LEDs
 enum class LedSource { AUTO, BROADCAST, SETTING, SYSFS }
 enum class Lang(val tag: String) { IT("it"), EN("en") }
 
 /** Accent palette (ARGB), indexed by [Prefs.accent]. */
 val ACCENTS = longArrayOf(0xFF3DDC84, 0xFF2B7FFF, 0xFFFFB300, 0xFFFF5252, 0xFFB388FF)
+
+/** Effective accent: preset or the user-picked colour. */
+val Prefs.accentArgb: Int get() = if (accent in ACCENTS.indices) ACCENTS[accent].toInt() else accentCustom
 
 data class Prefs(
     // layout
@@ -41,15 +45,22 @@ data class Prefs(
     val drawerDev: Boolean = true,          // developer-options shortcut as first drawer cell
     val theme: ThemeMode = ThemeMode.DARK,
     val lang: Lang = Lang.IT,
-    val accent: Int = 0,
+    val accent: Int = 0,                    // index into ACCENTS; ACCENTS.size = custom colour
+    val accentCustom: Int = 0xFF3DDC84.toInt(),
     // apps
     val navPkg: String? = null,
     val mediaPkg: String? = null,
     val mediaMode: MediaMode = MediaMode.WIDGET,
     val pinned: List<String> = emptyList(),
+    val hidden: Set<String> = emptySet(),   // apps hidden from the drawer
+    val sort: AppSort = AppSort.ALPHA,
+    val customOrder: List<String> = emptyList(),
+    val usage: Map<String, Int> = emptyMap(), // launches per package, drives AppSort.USAGE
     // dock extras
     val clock24h: Boolean = true,
-    val showLinks: Boolean = true,
+    val showWifi: Boolean = true,           // WiFi (and hotspot) icon in the dock
+    val showBt: Boolean = true,
+    val showDate: Boolean = true,
     // car tools
     val toolsIntervalSec: Int = 2,
     val tempWarnC: Int = 80,
@@ -91,12 +102,20 @@ object K {
     val theme = stringPreferencesKey("theme")
     val lang = stringPreferencesKey("lang")
     val accent = intPreferencesKey("accent")
+    val accentCustom = intPreferencesKey("accent_custom")
     val nav = stringPreferencesKey("nav")
     val media = stringPreferencesKey("media")
     val mode = stringPreferencesKey("media_mode")
     val pinned = stringPreferencesKey("pinned")
+    val hidden = stringPreferencesKey("hidden")
+    val sort = stringPreferencesKey("drawer_sort")
+    val order = stringPreferencesKey("drawer_order")
+    val usage = stringPreferencesKey("usage")
     val clock24 = booleanPreferencesKey("clock_24h")
-    val links = booleanPreferencesKey("show_links")
+    val date = booleanPreferencesKey("show_date")
+    val links = booleanPreferencesKey("show_links") // legacy single toggle, still read as default
+    val wifi = booleanPreferencesKey("show_wifi")
+    val bt = booleanPreferencesKey("show_bt")
     val interval = intPreferencesKey("tools_interval_s")
     val tempWarn = intPreferencesKey("temp_warn_c")
     val dim = stringPreferencesKey("dim_mode")
@@ -135,13 +154,20 @@ class SettingsStore(private val ctx: Context) {
         drawerDev = p[K.drawerDev] ?: true,
         theme = p[K.theme].toEnum(ThemeMode.DARK),
         lang = p[K.lang].toEnum(Lang.IT),
-        accent = (p[K.accent] ?: 0).coerceIn(0, ACCENTS.lastIndex),
+        accent = (p[K.accent] ?: 0).coerceIn(0, ACCENTS.size),
+        accentCustom = p[K.accentCustom] ?: 0xFF3DDC84.toInt(),
         navPkg = p[K.nav],
         mediaPkg = p[K.media],
         mediaMode = p[K.mode].toEnum(MediaMode.WIDGET),
         pinned = p[K.pinned]?.split(',')?.filter { it.isNotEmpty() } ?: emptyList(),
+        hidden = p[K.hidden]?.split(',')?.filter { it.isNotEmpty() }?.toSet() ?: emptySet(),
+        sort = p[K.sort].toEnum(AppSort.ALPHA),
+        customOrder = p[K.order]?.split(',')?.filter { it.isNotEmpty() } ?: emptyList(),
+        usage = p[K.usage]?.split(',')?.mapNotNull { e -> e.split('=').takeIf { it.size == 2 }?.let { it[0] to (it[1].toIntOrNull() ?: 0) } }?.toMap() ?: emptyMap(),
         clock24h = p[K.clock24] ?: true,
-        showLinks = p[K.links] ?: true,
+        showWifi = p[K.wifi] ?: p[K.links] ?: true,
+        showBt = p[K.bt] ?: p[K.links] ?: true,
+        showDate = p[K.date] ?: true,
         toolsIntervalSec = (p[K.interval] ?: 2).coerceIn(1, 10),
         tempWarnC = (p[K.tempWarn] ?: 80).coerceIn(50, 110),
         dimMode = p[K.dim].toEnum(DimMode.OFF),

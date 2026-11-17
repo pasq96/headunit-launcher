@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.R
-import com.pasq96.headunit.data.ACCENTS
+import com.pasq96.headunit.data.accentArgb
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.DockPos
 import com.pasq96.headunit.data.K
@@ -65,7 +68,7 @@ fun HomeScreen(vm: LauncherHub) = HeadUnitTheme(vm) { HomeContent(vm) }
 private fun HomeContent(vm: LauncherHub) {
     val p by vm.prefs.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
-    val accent = Color(ACCENTS[p.accent])
+    val accent = Color(p.accentArgb)
 
     Box(Modifier.fillMaxSize().background(Bg)) {
         // With the dock in the overlay service the in-activity dock stays a blank spacer of the same size (same panel geometry).
@@ -204,7 +207,7 @@ private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifi
 internal fun DockLayer(hub: LauncherHub) = HeadUnitTheme(hub) {
     val p by hub.prefs.collectAsStateWithLifecycle()
     val apps by hub.apps.collectAsStateWithLifecycle()
-    Dock(hub, p, apps, Color(ACCENTS[p.accent]))
+    Dock(hub, p, apps, Color(p.accentArgb))
 }
 
 internal fun dockSize(p: Prefs): Modifier =
@@ -218,13 +221,12 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
     val icon: @Composable (AppInfo) -> Unit = { a -> DockIcon(a, p, vm, accent) }
     val buttons: @Composable () -> Unit = {
         GlyphButton(when (p.panels) { Panels.BOTH -> G.SPLIT; Panels.NAV -> G.SOLO_L; Panels.MEDIA -> G.SOLO_R }, TextHi, { vm.cyclePanels() })
-        GlyphButton(G.GAUGE, TextHi, { vm.tools = !vm.tools; vm.drawer = false })
         GlyphButton(G.GEAR, TextHi, { vm.settings = !vm.settings; vm.drawer = false })
         GlyphButton(G.GRID, accent, { vm.drawer = !vm.drawer; vm.tools = false }, glyph = 36.dp)
     }
     if (vertical) {
         Column(mod.padding(vertical = 8.dp), Arrangement.spacedBy(6.dp), Alignment.CenterHorizontally) {
-            ClockBlock(p)
+            ClockBlock(p, vertical = true)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) { items(pinned, key = { it.pkg }) { icon(it) } }
             buttons()
         }
@@ -232,7 +234,7 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
         Row(mod.padding(horizontal = 12.dp), Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
             LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { items(pinned, key = { it.pkg }) { icon(it) } }
             buttons()
-            ClockBlock(p)
+            ClockBlock(p, vertical = false)
         }
     }
 }
@@ -244,7 +246,7 @@ private fun DockIcon(a: AppInfo, p: Prefs, vm: LauncherHub, accent: Color) {
     val role = a.pkg == p.navPkg || a.pkg == p.mediaPkg
     Column(
         Modifier.clip(RoundedCornerShape(14.dp))
-            .androidxCombined(onClick = { Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) }, onLong = { vm.menuApp = a })
+            .androidxCombined(onClick = { vm.recordUse(a.pkg); Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) }, onLong = { vm.menuApp = a })
             .then(if (role) Modifier.border(2.dp, accent, RoundedCornerShape(14.dp)) else Modifier).padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -254,18 +256,33 @@ private fun DockIcon(a: AppInfo, p: Prefs, vm: LauncherHub, accent: Color) {
 }
 
 @Composable
-private fun ClockBlock(p: Prefs) {
+private fun ClockBlock(p: Prefs, vertical: Boolean) {
     val ctx = LocalContext.current
     val time by remember(p.clock24h) { CarTools.clock(p.clock24h) }.collectAsStateWithLifecycle("")
-    Column(Modifier.padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Txt(time, 26, bold = true)
-        if (p.showLinks) {
-            val l by remember { CarTools.links(ctx) }.collectAsStateWithLifecycle(Links(false, false, false))
-            Row(Modifier.padding(top = 2.dp), Arrangement.spacedBy(6.dp)) {
-                Txt("WiFi", 12, if (l.wifi) Color(0xFF3DDC84) else TextLo)
-                if (l.hotspot) Txt("AP", 12, Color(0xFFFFB300))
-                Txt("BT", 12, if (l.bluetooth) Color(0xFF2B7FFF) else TextLo)
-            }
+    // time ticks every minute, which is also when the date can change
+    val date = remember(time, p.lang) { SimpleDateFormat("EEE d MMM", Locale.forLanguageTag(p.lang.tag)).format(Date()) }
+    val icons: @Composable () -> Unit = {
+        val l by remember { CarTools.links(ctx) }.collectAsStateWithLifecycle(Links(false, false, false))
+        val off = TextLo.copy(alpha = 0.5f)
+        if (p.showWifi) Glyph(G.WIFI, if (l.wifi) Color(0xFF3DDC84) else off, 20.dp)
+        if (p.showWifi && l.hotspot) Glyph(G.HOTSPOT, Color(0xFFFFB300), 20.dp)
+        if (p.showBt) Glyph(G.BT, if (l.bluetooth) Color(0xFF2B7FFF) else off, 20.dp)
+    }
+    val clock: @Composable () -> Unit = {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Txt(time, 26, bold = true)
+            if (p.showDate) Txt(date, 13, TextLo)
+        }
+    }
+    if (vertical) {
+        Column(Modifier.padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            clock()
+            if (p.showWifi || p.showBt) Row(Modifier.padding(top = 4.dp), Arrangement.spacedBy(6.dp)) { icons() }
+        }
+    } else {
+        Row(Modifier.padding(horizontal = 8.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+            if (p.showWifi || p.showBt) Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) { icons() }
+            clock()
         }
     }
 }

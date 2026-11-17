@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.Preferences
 import com.pasq96.headunit.MainActivity
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.AppRepo
+import com.pasq96.headunit.data.AppSort
+import com.pasq96.headunit.data.orderedApps
 import com.pasq96.headunit.data.DimMode
 import com.pasq96.headunit.data.K
 import com.pasq96.headunit.data.MediaMode
@@ -57,6 +59,8 @@ class LauncherHub(private val app: Application) {
     var tools by mutableStateOf(false)
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
+    var manager by mutableStateOf(false)              // drawer apps: visibility + custom order
+    var colorPicker by mutableStateOf(false)         // custom accent colour dialog
     var picker by mutableStateOf<PickerKind?>(null)  // app chooser (navigator / player)
     var overlayInWindow by mutableStateOf(false)   // panels hosted by the overlay service (above freeform apps)
     var dockInOverlay by mutableStateOf(false)     // dock hosted by the overlay service: the in-activity dock stays blank
@@ -90,15 +94,42 @@ class LauncherHub(private val app: Application) {
         scope.launch { store.setPinned(if (pkg in cur) cur - pkg else cur + pkg) }
     }
 
+    fun toggleHidden(pkg: String) {
+        val cur = prefs.value.hidden
+        set(K.hidden, (if (pkg in cur) cur - pkg else cur + pkg).joinToString(","))
+    }
+
+    /** Moves [pkg] inside the custom order (which first absorbs the current visible order); [delta] = null sends it to the top. */
+    fun moveInOrder(pkg: String, delta: Int?) {
+        val list = orderedApps(apps.value, prefs.value.copy(sort = AppSort.CUSTOM), includeHidden = true).map { it.pkg }.toMutableList()
+        val i = list.indexOf(pkg).takeIf { it >= 0 } ?: return
+        val j = if (delta == null) 0 else (i + delta).coerceIn(0, list.lastIndex)
+        list.add(j, list.removeAt(i))
+        set(K.order, list.joinToString(","))
+    }
+
+    /** Switches the drawer to custom order, seeded with the order currently on screen so nothing jumps. */
+    fun enableCustomOrder() {
+        val p = prefs.value
+        if (p.sort == AppSort.CUSTOM) return
+        val order = orderedApps(apps.value, p, includeHidden = true).map { it.pkg }
+        scope.launch { store.set(K.order, order.joinToString(",")); store.setEnum(K.sort, AppSort.CUSTOM) }
+    }
+
+    fun recordUse(pkg: String) {
+        val u = prefs.value.usage.toMutableMap().also { it[pkg] = (it[pkg] ?: 0) + 1 }
+        set(K.usage, u.entries.joinToString(",") { "${it.key}=${it.value}" })
+    }
+
     fun cyclePanels() = setEnum(K.panels, when (prefs.value.panels) {
         Panels.BOTH -> Panels.NAV
         Panels.NAV -> Panels.MEDIA
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || settings || menuApp != null || picker != null
+    fun hasOverlay() = drawer || tools || settings || menuApp != null || picker != null || colorPicker || manager
 
-    fun closeOverlays() { drawer = false; tools = false; settings = false; menuApp = null; picker = null }
+    fun closeOverlays() { drawer = false; tools = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

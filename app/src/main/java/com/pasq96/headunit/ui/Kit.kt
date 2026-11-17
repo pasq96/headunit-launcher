@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -60,7 +61,7 @@ fun Txt(
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
 enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN,
-    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP }
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -138,6 +139,29 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             drawLine(c, Offset(w * 0.15f, h * 0.35f), Offset(w * 0.85f, h * 0.35f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.65f, h * 0.18f), Offset(w * 0.85f, h * 0.35f), sw, StrokeCap.Round)
             drawLine(c, Offset(w * 0.85f, h * 0.65f), Offset(w * 0.15f, h * 0.65f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.35f, h * 0.82f), Offset(w * 0.15f, h * 0.65f), sw, StrokeCap.Round)
         }
+        G.WIFI -> {
+            val c0 = Offset(w * 0.5f, h * 0.82f)
+            for (r in listOf(0.22f, 0.4f, 0.58f)) drawArc(c, 225f, 90f, false, Offset(c0.x - w * r, c0.y - w * r), Size(w * r * 2, w * r * 2), style = Stroke(sw * 1.2f, cap = StrokeCap.Round))
+            drawCircle(c, w * 0.07f, c0)
+        }
+        G.BT -> drawPath(
+            Path().apply { moveTo(w * 0.28f, h * 0.3f); lineTo(w * 0.72f, h * 0.7f); lineTo(w * 0.5f, h * 0.9f); lineTo(w * 0.5f, h * 0.1f); lineTo(w * 0.72f, h * 0.3f); lineTo(w * 0.28f, h * 0.7f) },
+            c, style = Stroke(sw * 1.1f, cap = StrokeCap.Round),
+        )
+        G.HOTSPOT -> {
+            drawCircle(c, w * 0.09f, Offset(w * 0.5f, h * 0.5f))
+            for (r in listOf(0.24f, 0.4f)) {
+                drawArc(c, -40f, 80f, false, Offset(w * (0.5f - r), h * (0.5f - r)), Size(w * r * 2, h * r * 2), style = Stroke(sw, cap = StrokeCap.Round))
+                drawArc(c, 140f, 80f, false, Offset(w * (0.5f - r), h * (0.5f - r)), Size(w * r * 2, h * r * 2), style = Stroke(sw, cap = StrokeCap.Round))
+            }
+        }
+        G.EYE, G.EYE_OFF -> {
+            drawOval(c, Offset(w * 0.1f, h * 0.27f), Size(w * 0.8f, h * 0.46f), style = Stroke(sw))
+            drawCircle(c, w * 0.11f, Offset(w * 0.5f, h * 0.5f))
+            if (g == G.EYE_OFF) drawLine(c, Offset(w * 0.15f, h * 0.85f), Offset(w * 0.85f, h * 0.15f), sw * 1.2f, StrokeCap.Round)
+        }
+        G.UP -> drawPath(Path().apply { moveTo(w * 0.25f, h * 0.62f); lineTo(w * 0.5f, h * 0.36f); lineTo(w * 0.75f, h * 0.62f) }, c, style = Stroke(sw * 1.3f, cap = StrokeCap.Round))
+        G.DOWN -> drawPath(Path().apply { moveTo(w * 0.25f, h * 0.38f); lineTo(w * 0.5f, h * 0.64f); lineTo(w * 0.75f, h * 0.38f) }, c, style = Stroke(sw * 1.3f, cap = StrokeCap.Round))
         G.CLOSE -> { drawLine(c, Offset(w * 0.25f, h * 0.25f), Offset(w * 0.75f, h * 0.75f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.75f, h * 0.25f), Offset(w * 0.25f, h * 0.75f), sw, StrokeCap.Round) }
     }
 }
@@ -168,6 +192,17 @@ fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, ic
 fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
     Box(Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).background(if (selected) TextHi else Surface2).clickable(onClick = onClick), Alignment.Center) {
         Box(Modifier.size(32.dp).clip(RoundedCornerShape(16.dp)).background(color))
+    }
+
+/** Multicolour tile that opens the custom colour picker; shows the chosen colour in its centre when active. */
+@Composable
+fun RainbowSwatch(selected: Boolean, custom: Color, onClick: () -> Unit) =
+    Box(Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).background(if (selected) TextHi else Surface2).clickable(onClick = onClick), Alignment.Center) {
+        Box(
+            Modifier.size(32.dp).clip(RoundedCornerShape(16.dp))
+                .background(Brush.sweepGradient(listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red))),
+            Alignment.Center,
+        ) { if (selected) Box(Modifier.size(14.dp).clip(RoundedCornerShape(7.dp)).background(custom)) }
     }
 
 @Composable

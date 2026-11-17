@@ -12,7 +12,7 @@
     <string name="media_open_source">Apri app sorgente</string>
     <string name="emg_android_settings">Impostazioni Android</string>
     <string name="emg_default_apps">App predefinite (cambia launcher)</string>
-    <string name="drawer_title">App (%1$d)  ·  tieni premuto per pinnare / impostare</string>
+    <string name="drawer_title">Applicazioni</string>
     <string name="menu_pin">Pinna nella dock</string>
     <string name="menu_unpin">Rimuovi dalla dock</string>
     <string name="menu_set_nav">Imposta come navigatore</string>
@@ -85,7 +85,6 @@
     <string name="sec_dock">Dock</string>
     <string name="dock_overlay">Dock sempre sopra le app (overlay, serve freeform)</string>
     <string name="clock_24h">Orologio 24 ore</string>
-    <string name="show_links">Indicatori WiFi / Hotspot / Bluetooth</string>
     <string name="sec_cartools">Car Tools</string>
     <string name="sensor_interval">Aggiornamento sensori</string>
     <string name="temp_warn">Allarme temperatura CPU</string>
@@ -161,4 +160,21 @@
     <string name="grant_battery">Esclusione risparmio batteria</string>
     <string name="grant_notif">Notifiche</string>
     <string name="grant_devopts">Opzioni sviluppatore attive</string>
+    <string name="dock_pos">Posizione dock</string>
+    <string name="color_pick_title">Colore personalizzato</string>
+    <string name="color_apply">Applica</string>
+    <string name="show_date">Data sotto l\'orologio</string>
+    <string name="drawer_sort">Ordine delle app</string>
+    <string name="sort_alpha">A–Z</string>
+    <string name="sort_usage">Più usate</string>
+    <string name="sort_custom">Personalizzato</string>
+    <string name="drawer_manage">Gestisci app del drawer</string>
+    <string name="drawer_hidden_count">%1$d nascoste</string>
+    <string name="manage_title">App del drawer</string>
+    <string name="manage_hint">Tocca l\'occhio per nascondere o mostrare. Scegli «Personalizzato» per riordinare.</string>
+    <string name="manage_hint_custom">Tocca l\'occhio per nascondere o mostrare, usa le frecce per riordinare.</string>
+    <string name="menu_hide">Nascondi dal drawer</string>
+    <string name="menu_move">Muovi</string>
+    <string name="show_wifi">Icona WiFi / Hotspot</string>
+    <string name="show_bt">Icona Bluetooth</string>
 </resources>

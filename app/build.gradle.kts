@@ -47,6 +47,8 @@ android {
     }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/*.version", "DebugProbesKt.bin", "/META-INF/LICENSE*", "/META-INF/NOTICE*", "/META-INF/DEPENDENCIES", "/META-INF/versions/**") }
+    // Transitive AndroidX .so files ship as-is (the runner has no NDK to strip them): skip the strip step and its warning.
+    packaging { jniLibs.keepDebugSymbols += "**/*.so" }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
 

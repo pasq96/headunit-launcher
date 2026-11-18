@@ -107,3 +107,5 @@ sensori, soglia temperatura, avvio automatico, ripristino al risveglio, stato de
 
 `ui/` Compose (home, dock, drawer, pannelli) · `embed/` strategie di embedding · `media/` MediaSession e listener ·
 `system/` LED tasti e tema auto · `radio/` radio FM nativa · `tools/` temperatura, RAM, batteria, GPS, luminosità, overlay notte · `data/` DataStore e app installate.
+
+**Icona e splash**: icona adattiva a quadrante (con versione monocromatica per le icone a tema) e splash di avvio con dissolvenza, trattenuto al massimo 1,5 s finché la lista app è pronta.

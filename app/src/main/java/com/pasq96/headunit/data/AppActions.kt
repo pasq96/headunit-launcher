@@ -65,7 +65,7 @@ object AppActions {
     private fun shell(cmd: String): Boolean = listOf(arrayOf("sh", "-c", cmd), arrayOf("su", "-c", cmd)).any { run(it) }
 
     private fun run(argv: Array<String>): Boolean = runCatching {
-        val p = ProcessBuilder(*argv).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start()
+        val p = ProcessBuilder(*argv).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.to(java.io.File("/dev/null"))).start()
         if (p.waitFor(5, TimeUnit.SECONDS)) p.exitValue() == 0 else { p.destroyForcibly(); false }
     }.getOrDefault(false)
 }

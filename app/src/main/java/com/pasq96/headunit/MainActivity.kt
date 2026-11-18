@@ -10,6 +10,8 @@ import android.net.Uri
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.os.SystemClock
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -41,6 +43,13 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
+        val t0 = SystemClock.uptimeMillis()
+        // hold the splash until the app list is ready (capped), so the home never pops in half-built
+        splash.setKeepOnScreenCondition { vm.apps.value.isEmpty() && SystemClock.uptimeMillis() - t0 < 1500 }
+        splash.setOnExitAnimationListener { v ->
+            v.view.animate().alpha(0f).setDuration(220).withEndAction { v.remove() }.start()
+        }
         super.onCreate(savedInstanceState)
         window.decorView.isSoundEffectsEnabled = false
         setContent { HomeScreen(vm) }

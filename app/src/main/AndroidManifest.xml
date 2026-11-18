@@ -26,12 +26,14 @@
     <application
         android:name=".HeadUnitApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:theme="@style/Theme.HeadUnit">
 
         <activity
             android:name=".MainActivity"
+            android:theme="@style/Theme.HeadUnit.Starting"
             android:exported="true"
             android:launchMode="singleTask"
             android:resizeableActivity="true"

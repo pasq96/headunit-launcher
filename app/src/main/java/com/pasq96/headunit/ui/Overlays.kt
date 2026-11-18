@@ -428,7 +428,7 @@ private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
             }
             Section(str(R.string.sec_screen), accent, G.SUN) {
                 if (!CarTools.canWriteSettings(ctx)) Chip(str(R.string.write_grant), false, accent, icon = G.SUN) { vm.closeOverlays(); openWriteSettings(ctx) }
-                else SimpleSlider(bright, accent, { bright = it; CarTools.setBrightness(ctx, (it * 255).roundToInt()) })
+                else SimpleSlider(bright, accent, { bright = it }, onDone = { CarTools.setBrightness(ctx, (bright * 255).roundToInt()) })
             }
         }
     }
@@ -519,7 +519,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 Labeled(str(R.string.dim_mode), G.SUN, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
                 DimChips(vm, p, accent)
                 Txt(str(R.string.dim_strength, (p.nightAlpha * 100).roundToInt()), 15, TextLo)
-                SimpleSlider((p.nightAlpha - 0.1f) / 0.75f, accent, { vm.set(K.nightAlpha, 0.1f + it * 0.75f) })
+                var alpha by remember(p.nightAlpha) { mutableFloatStateOf((p.nightAlpha - 0.1f) / 0.75f) }
+                SimpleSlider(alpha, accent, { alpha = it }, onDone = { vm.set(K.nightAlpha, 0.1f + alpha * 0.75f) })
             }
                 },
                 {

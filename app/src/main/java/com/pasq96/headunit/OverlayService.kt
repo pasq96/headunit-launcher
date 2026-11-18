@@ -53,7 +53,10 @@ class OverlayService : Service() {
     private var panelView: ComposeView? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!wanted(this)) { stopSelf(); return START_NOT_STICKY }
+        return START_STICKY
+    }
 
     override fun onCreate() {
         super.onCreate()

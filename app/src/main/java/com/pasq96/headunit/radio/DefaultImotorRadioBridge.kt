@@ -20,7 +20,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
-            when (i.action) { C.Action.STATE -> applyState(i); C.Action.PRESETS -> applyPresets(i) }
+            runCatching { when (i.action) { C.Action.STATE -> applyState(i); C.Action.PRESETS -> applyPresets(i) } }
         }
     }
 

@@ -14,7 +14,7 @@ object PermissionGranter {
         val comp = "$pkg/$pkg.media.MediaListener"
         return listOf(
             Step(R.string.grant_secure, listOf("pm grant $pkg android.permission.WRITE_SECURE_SETTINGS")),
-            Step(R.string.grant_location, listOf("pm grant $pkg android.permission.ACCESS_FINE_LOCATION")),
+            Step(R.string.grant_location, listOf("pm grant $pkg android.permission.ACCESS_FINE_LOCATION && pm grant $pkg android.permission.ACCESS_COARSE_LOCATION")),
             Step(R.string.grant_overlay, listOf("appops set $pkg SYSTEM_ALERT_WINDOW allow")),
             Step(R.string.grant_write, listOf("appops set $pkg WRITE_SETTINGS allow")),
             Step(R.string.grant_usage, listOf("appops set $pkg GET_USAGE_STATS allow")),

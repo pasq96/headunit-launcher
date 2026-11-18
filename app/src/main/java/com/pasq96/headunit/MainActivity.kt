@@ -3,6 +3,7 @@ package com.pasq96.headunit
 import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
+import androidx.lifecycle.Lifecycle
 import androidx.compose.runtime.snapshotFlow
 import android.provider.Settings
 import android.net.Uri
@@ -33,7 +34,7 @@ class MainActivity : ComponentActivity() {
     private val vm: LauncherHub get() = (application as HeadUnitApp).hub
     private var wakeJob: Job? = null
 
-    private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.gpsTick++ }
+    private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.gpsTick++ }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) { if (i.action == Intent.ACTION_SCREEN_ON) onWake() }
@@ -78,7 +79,6 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         vm.media.start()
         vm.radio.start()
-        vm.reloadApps()
         OverlayService.sync(this) // permissions may have changed while the user was in system settings
     }
 
@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(i: Intent) {
         if (i.getBooleanExtra(EXTRA_REQUEST_LOCATION, false)) {
             i.removeExtra(EXTRA_REQUEST_LOCATION)
-            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
     }
 
@@ -140,8 +140,7 @@ class MainActivity : ComponentActivity() {
             delay(p.wakeDelaySec * 1000L)
             CarTools.setNightOverlay(this@MainActivity, vm.dimOn(), p.nightAlpha)
             OverlayService.sync(this@MainActivity)
-            vm.media.start()
-            vm.radio.start()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) { vm.media.start(); vm.radio.start() }
             if (!p.resumeOnWake) return@launch
             vm.restoreTick++ // HomeScreen re-launches nav/media into their windows (also revives dead hosted tasks)
             if (p.autoStart && !Embedder.canEmbed(this@MainActivity)) p.navPkg?.let { Embedder.launch(this@MainActivity, it) }

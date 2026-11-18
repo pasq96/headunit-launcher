@@ -9,6 +9,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.datastore.preferences.core.Preferences
 import com.pasq96.headunit.MainActivity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.AppRepo
 import com.pasq96.headunit.data.AppSort
@@ -68,6 +74,14 @@ class LauncherHub(private val app: Application) {
     var gpsTick by mutableIntStateOf(0)            // bumped when the location permission answer comes back
 
     init {
+        reloadApps()
+        // Icons are rasterised once; afterwards only a package change refreshes the list.
+        val pkgFilter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply {
+            addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_REPLACED); addDataScheme("package")
+        }
+        ContextCompat.registerReceiver(app, object : BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) { reloadJob?.cancel(); reloadJob = scope.launch { delay(800); reloadApps() } }
+        }, pkgFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
         // The LED monitor runs only while an AUTO mode needs it (or the settings panel shows its diagnostics).
         scope.launch {
             combine(
@@ -84,6 +98,7 @@ class LauncherHub(private val app: Application) {
 
     suspend fun loadedPrefs(): Prefs = store.prefs.first()
 
+    private var reloadJob: Job? = null
     fun reloadApps() { scope.launch { apps.value = AppRepo.load(app) } }
 
     fun <V> set(key: Preferences.Key<V>, value: V) { scope.launch { store.set(key, value) } }
@@ -116,9 +131,15 @@ class LauncherHub(private val app: Application) {
         scope.launch { store.set(K.order, order.joinToString(",")); store.setEnum(K.sort, AppSort.CUSTOM) }
     }
 
+    // Launch counters live in memory and reach the DataStore a few seconds later, so launching an app never triggers a Prefs emission.
+    private var usageMem: MutableMap<String, Int>? = null
+    private var usageJob: Job? = null
+
     fun recordUse(pkg: String) {
-        val u = prefs.value.usage.toMutableMap().also { it[pkg] = (it[pkg] ?: 0) + 1 }
-        set(K.usage, u.entries.joinToString(",") { "${it.key}=${it.value}" })
+        val u = usageMem ?: prefs.value.usage.toMutableMap().also { usageMem = it }
+        u[pkg] = (u[pkg] ?: 0) + 1
+        usageJob?.cancel()
+        usageJob = scope.launch { delay(5_000); store.set(K.usage, u.entries.joinToString(",") { "${it.key}=${it.value}" }) }
     }
 
     fun cyclePanels() = setEnum(K.panels, when (prefs.value.panels) {

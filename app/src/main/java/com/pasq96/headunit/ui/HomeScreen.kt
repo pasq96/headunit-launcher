@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,13 +142,18 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
 }
 
 @Composable
-private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) =
+private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Float) -> Unit, onEnd: () -> Unit) {
+    // callbacks capture the split ratio: always call the latest ones from the long-lived pointer coroutine
+    val start by rememberUpdatedState(onStart)
+    val drag by rememberUpdatedState(onDrag)
+    val end by rememberUpdatedState(onEnd)
     Box(
         Modifier.width(widthDp.dp).fillMaxHeight().pointerInput(Unit) {
-            detectHorizontalDragGestures(onDragStart = { onStart() }, onDragEnd = onEnd, onDragCancel = onEnd) { c, dx -> c.consume(); onDrag(dx) }
+            detectHorizontalDragGestures(onDragStart = { start() }, onDragEnd = { end() }, onDragCancel = { end() }) { c, dx -> c.consume(); drag(dx) }
         },
         Alignment.Center,
     ) { Box(Modifier.width(6.dp).height(72.dp).clip(RoundedCornerShape(3.dp)).background(accent)) }
+}
 
 /** Placeholder window for an app shown through the Embedder (the real app is drawn above it by the system). */
 @Composable

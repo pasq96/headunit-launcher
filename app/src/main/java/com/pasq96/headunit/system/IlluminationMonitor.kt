@@ -40,7 +40,7 @@ class IlluminationMonitor(context: Context) {
 
     private val receiver = object : BroadcastReceiver() {
         @Suppress("DEPRECATION")
-        override fun onReceive(c: Context, i: Intent) { publish(C.parse(i.extras?.get(C.EXTRA_ON)), "broadcast") }
+        override fun onReceive(c: Context, i: Intent) { runCatching { publish(C.parse(i.extras?.get(C.EXTRA_ON)), "broadcast") } }
     }
     private val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) { readSettings() }

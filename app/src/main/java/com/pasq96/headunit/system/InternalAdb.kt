@@ -41,6 +41,7 @@ object InternalAdb {
     private const val WRTE = 0x45545257
     private const val VERSION = 0x01000000
     private const val MAX_DATA = 4096
+    private const val MAX_RECV = 1 shl 20 // adbd may negotiate larger payloads than we advertise
     private val LE = ByteOrder.LITTLE_ENDIAN
     // DER DigestInfo prefix for SHA-1: adbd treats the 20-byte token as an already computed digest
     private val SHA1_INFO = byteArrayOf(0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14)
@@ -56,16 +57,17 @@ object InternalAdb {
         fun shell(cmd: String): Pair<Int, String> {
             val local = nextId++
             send(out, OPEN, local, 0, "shell:$cmd; echo __rc=\$?\u0000".toByteArray())
-            val sb = StringBuilder()
+            sock.soTimeout = 60_000 // the auth prompt is over: a silent peer now means a hung command
+            val sb = java.io.ByteArrayOutputStream()
             loop@ while (true) {
                 val m = recv(inp)
                 if (m.a1 != local && m.cmd != OKAY) continue
                 when (m.cmd) {
-                    WRTE -> { sb.append(String(m.data)); send(out, OKAY, local, m.a0) }
+                    WRTE -> { sb.write(m.data); send(out, OKAY, local, m.a0) }
                     CLSE -> { runCatching { send(out, CLSE, local, m.a0) }; break@loop }
                 }
             }
-            val text = sb.toString()
+            val text = sb.toString(Charsets.UTF_8.name())
             val rc = Regex("__rc=(\\d+)").findAll(text).lastOrNull()?.groupValues?.get(1)?.toIntOrNull() ?: -1
             return rc to text.replace(Regex("__rc=\\d+\\s*$"), "").trim()
         }
@@ -116,7 +118,8 @@ object InternalAdb {
     private fun recv(inp: DataInputStream): Msg {
         val raw = ByteArray(24); inp.readFully(raw)
         val h = ByteBuffer.wrap(raw).order(LE)
-        val cmd = h.int; val a0 = h.int; val a1 = h.int; val len = h.int
+        val cmd = h.int; val a0 = h.int; val a1 = h.int; val len = h.int; h.int; val magic = h.int
+        if (magic != cmd xor -1 || len !in 0..MAX_RECV) throw IOException("bad adb frame")
         val d = ByteArray(len); if (len > 0) inp.readFully(d)
         return Msg(cmd, a0, a1, d)
     }
@@ -131,7 +134,9 @@ object InternalAdb {
             return KeyPair(kf.generatePublic(RSAPublicKeySpec(priv.modulus, priv.publicExponent)), priv)
         }
         val kp = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-        f.writeBytes(kp.private.encoded)
+        val tmp = File(ctx.filesDir, "adbkey.tmp")
+        tmp.writeBytes(kp.private.encoded)
+        if (!tmp.renameTo(f)) { tmp.delete(); f.writeBytes(kp.private.encoded) }
         return kp
     }
 

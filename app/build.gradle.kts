@@ -6,6 +6,11 @@ plugins {
 // Signing: CI/local env vars; without them release falls back to the debug keystore (test signing).
 val storePath = System.getenv("KEYSTORE_PATH")?.let { rootProject.file("app").resolve(it).canonicalFile }
 
+composeCompiler {
+    // Prefs/AppInfo hold Maps and Drawables the compiler cannot prove immutable: treat them as stable so rows skip recomposition.
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("compose-stability.conf"))
+}
+
 android {
     namespace = "com.pasq96.headunit"
     compileSdk = 37
@@ -45,6 +50,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    androidResources { localeFilters += listOf("it", "en") }
     buildFeatures { compose = true; buildConfig = true }
     packaging { resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/*.version", "DebugProbesKt.bin", "/META-INF/LICENSE*", "/META-INF/NOTICE*", "/META-INF/DEPENDENCIES", "/META-INF/versions/**") }
     // Transitive AndroidX .so files ship as-is (the runner has no NDK to strip them): skip the strip step and its warning.

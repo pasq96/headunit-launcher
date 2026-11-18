@@ -24,10 +24,12 @@ import android.bluetooth.BluetoothAdapter
 import android.media.AudioManager
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -41,11 +43,11 @@ object CarTools {
 
     fun stats(ctx: Context, everyMs: Long = 2_000): Flow<Stats> = flow {
         while (true) { emit(readStats(ctx)); delay(everyMs) }
-    }
+    }.flowOn(Dispatchers.IO)
 
     fun links(ctx: Context, everyMs: Long = 5_000): Flow<Links> = flow {
         while (true) { emit(readLinks(ctx)); delay(everyMs) }
-    }
+    }.flowOn(Dispatchers.IO)
 
     fun clock(h24: Boolean = true): Flow<String> = flow {
         val fmt = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.getDefault())

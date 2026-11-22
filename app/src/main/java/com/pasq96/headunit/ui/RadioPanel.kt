@@ -87,7 +87,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             if (!r.connected) Txt(str(R.string.radio_no_data), 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         }
 
-        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) }
+        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
 
         if (!tune) Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 40.dp) }
@@ -114,6 +114,21 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             }
         }
         if (tune) Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
+    }
+}
+
+/** Read-only position of the tuned frequency inside the band. */
+@Composable
+private fun PositionBar(freqKhz: Int, band: Band, accent: Color) {
+    val (lo, hi) = if (band == Band.AM) 522 to 1710 else 87_500 to 108_000
+    val f = ((freqKhz - lo).toFloat() / (hi - lo)).coerceIn(0f, 1f)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Surface2)) {
+            Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(accent))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), Arrangement.SpaceBetween) {
+            Txt(fmtFreq(lo, unit = false), 12, TextLo); Txt(fmtFreq(hi, unit = false), 12, TextLo)
+        }
     }
 }
 

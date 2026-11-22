@@ -123,7 +123,7 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
         when {
             embedMedia -> AppPanel(str(R.string.panel_player), PickerKind.PLAYER, p.mediaPkg, vm, accent, mm) { vm.mediaRect }
             p.mediaMode == MediaMode.RADIO -> RadioPanel(vm, p, accent, mm)
-            else -> MediaCard(vm, p, accent, mm)
+            else -> MediaSwitch(vm, p, accent, mm)
         }
     }
     val slots = (if (p.swapPanels) listOf(false to mediaSlot, true to navSlot) else listOf(true to navSlot, false to mediaSlot))
@@ -180,6 +180,22 @@ private fun AppPanel(title: String, kind: PickerKind, pkg: String?, vm: Launcher
 }
 
 // ---- native media widget ----
+
+/** Music / Radio switch: follows the radio while it is the active source, until the user picks a tab. */
+@Composable
+private fun MediaSwitch(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
+    val r by vm.radio.state.collectAsStateWithLifecycle()
+    var pick by remember { mutableStateOf<Boolean?>(null) }
+    val radio = pick ?: r.live
+    Column(modifier, Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+            Chip(str(R.string.tab_music), !radio, accent, icon = G.PLAY) { pick = false }
+            Chip(str(R.string.tab_radio), radio, accent, icon = G.RADIO) { pick = true }
+        }
+        val body = Modifier.weight(1f).fillMaxWidth()
+        if (radio) RadioPanel(vm, p, accent, body) else MediaCard(vm, p, accent, body)
+    }
+}
 
 @Composable
 private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {

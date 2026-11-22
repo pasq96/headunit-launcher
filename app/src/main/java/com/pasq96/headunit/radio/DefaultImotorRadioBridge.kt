@@ -3,6 +3,7 @@ package com.pasq96.headunit.radio
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import com.pasq96.headunit.embed.Embedder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,33 +29,53 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     override val canTune = false
     private var job: Job? = null
     @Volatile private var proc: Process? = null
+    @Volatile private var lastSeen = 0L
+    private var watchdog: Job? = null
 
     override fun start() {
         if (job?.isActive == true) return
         job = scope.launch {
             while (isActive) { runCatching { readLog() }; delay(5_000) }
         }
+        watchdog = scope.launch {
+            while (isActive) {
+                delay(2_000)
+                if (_state.value.live && SystemClock.elapsedRealtime() - lastSeen > LIVE_MS) _state.value = _state.value.copy(live = false)
+            }
+        }
     }
 
     override fun stop() {
         job?.cancel(); job = null
+        watchdog?.cancel(); watchdog = null
         proc?.destroy(); proc = null
     }
 
     /** Blocks on the filtered logcat stream until the process ends (stop() destroys it). */
     private fun readLog() {
-        val p = ProcessBuilder("logcat", "-T", "1", "-s", "$LOG_TAG:D").redirectErrorStream(true).start()
+        val p = ProcessBuilder("logcat", "-T", "1", "-s", "$LOG_TAG:D", "RadioControlProxy:D", "RadioControl:I").redirectErrorStream(true).start()
         proc = p
         p.inputStream.bufferedReader().useLines { lines ->
-            for (line in lines) RE.find(line)?.groupValues?.get(1)?.toIntOrNull()?.let(::apply)
+            for (line in lines) parse(line)
         }
     }
+
+    private fun parse(line: String) {
+        RE_FREQ.find(line)?.groupValues?.get(1)?.toIntOrNull()?.let { apply(it); return }
+        RE_PS.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }) }; return }
+        RE_RT.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }, rt = m.groupValues[2].trim().ifEmpty { null }) } }
+    }
+
+    private fun touch(f: RadioState.() -> RadioState) { lastSeen = SystemClock.elapsedRealtime(); _state.value = _state.value.f().copy(connected = true, live = true) }
 
     /** FM comes as tens of kHz (9540 = 95.40 MHz), AM as kHz. */
     private fun apply(raw: Int) {
         val fm = raw in 6_500..10_800
-        val s = _state.value
-        _state.value = s.copy(connected = true, freqKhz = if (fm) raw * 10 else raw, band = if (!fm) Band.AM else if (s.band == Band.AM) Band.FM1 else s.band)
+        touch {
+            // a new station invalidates the old RDS name until the next report
+            val khz = if (fm) raw * 10 else raw
+            copy(freqKhz = khz, ps = if (khz != freqKhz) null else ps, rt = if (khz != freqKhz) null else rt, band = if (!fm) Band.AM else if (band == Band.AM) Band.FM1 else band)
+        }
     }
 
     // ---- commands: the service has no seek/step distinction, next/previous station is the closest match ----
@@ -84,6 +105,9 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         const val NEXT = "com.imotor.radio.ACITON_NEXT_STATION" // sic: the app's own spelling
         const val PREV = "com.imotor.radio.ACTION_PREV_STATION"
         const val BAND = "com.imotor.radio.ACTION_SWITCH_BAND"
-        val RE = Regex("setRadioInfo:(\\d+)")
+        const val LIVE_MS = 4_000L
+        val RE_FREQ = Regex("setRadioInfo:(\\d+)")
+        val RE_PS = Regex("PS name:(.*?)\\s+tp:")
+        val RE_RT = Regex("mPsName:(.*?),mRt:(.*?),\\}")
     }
 }

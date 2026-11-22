@@ -35,6 +35,8 @@
     <string name="panels_player_only">Solo player</string>
     <string name="mode_widget">Player: widget</string>
     <string name="mode_app">Player: app</string>
+    <string name="tab_music">Musica</string>
+    <string name="tab_radio">Radio</string>
     <string name="mode_radio">Radio FM</string>
     <string name="sec_emergency">Uscita di emergenza</string>
     <string name="not_set">non impostato</string>

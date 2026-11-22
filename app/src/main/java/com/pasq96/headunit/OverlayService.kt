@@ -125,7 +125,7 @@ class OverlayService : Service() {
     private fun notification(): Notification {
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.app_name), NotificationManager.IMPORTANCE_MIN))
-        return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_launcher)
+        return NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle(getString(R.string.app_name)).setOngoing(true).build()
     }
 

@@ -2,6 +2,11 @@ package com.pasq96.headunit.ui
 
 import android.graphics.Rect
 import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -106,7 +111,7 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
 
     // Debounced: apps are (re)placed only once the layout has settled, never while dragging.
     LaunchedEffect(p.navPkg, p.mediaPkg, p.mediaMode, p.panels, p.swapPanels, p.dock, p.dockDp, p.handleDp, p.ratio, dragging, vm.restoreTick) {
-        if (dragging || !Embedder.canEmbed(ctx)) return@LaunchedEffect
+        if (dragging || !p.embedWindows || !Embedder.canEmbed(ctx)) return@LaunchedEffect
         delay(450)
         if (showNav) vm.navRect?.let { r -> p.navPkg?.let { Embedder.launch(ctx, it, r) } }
         if (showMedia && embedMedia) vm.mediaRect?.let { r -> Embedder.launch(ctx, p.mediaPkg, r) }
@@ -160,40 +165,55 @@ private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Fl
 private fun AppPanel(title: String, kind: PickerKind, pkg: String?, vm: LauncherHub, accent: Color, modifier: Modifier, rect: () -> Rect?) {
     val ctx = LocalContext.current
     val apps by vm.apps.collectAsStateWithLifecycle()
+    val shots by vm.previews.collectAsStateWithLifecycle()
+    val p by vm.prefs.collectAsStateWithLifecycle()
     val label = apps.firstOrNull { it.pkg == pkg }?.label
-    Column(
+    val shot = pkg?.let { shots[it] }
+    val embed = p.embedWindows && Embedder.canEmbed(ctx)
+    Box(
         modifier.clip(RoundedCornerShape(16.dp)).background(Surface)
-            .clickable { if (pkg == null) vm.picker = kind else Embedder.launch(ctx, pkg, if (Embedder.canEmbed(ctx)) rect() else null) },
-        Arrangement.Center, Alignment.CenterHorizontally,
+            .clickable { if (pkg == null) vm.picker = kind else Embedder.launch(ctx, pkg, if (embed) rect() else null) },
+        Alignment.Center,
     ) {
-        Txt(title, 22, bold = true)
-        Txt(
-            when {
-                pkg == null -> str(R.string.panel_pick_app)
-                !Embedder.canEmbed(ctx) -> str(R.string.panel_open_fullscreen, label ?: pkg)
-                else -> str(R.string.panel_reopen, label ?: pkg)
-            },
-            15, TextLo, modifier = Modifier.padding(24.dp), maxLines = 3, align = TextAlign.Center,
-        )
-        if (pkg != null) Box(Modifier.size(width = 56.dp, height = 4.dp).background(accent))
+        if (shot != null) {
+            Image(shot, label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(10.dp)).background(Bg.copy(alpha = 0.72f)).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                Txt(label ?: title, 15, TextHi, bold = true)
+            }
+        } else Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Txt(title, 22, bold = true)
+            Txt(
+                when {
+                    pkg == null -> str(R.string.panel_pick_app)
+                    !embed -> str(R.string.panel_open_fullscreen, label ?: pkg)
+                    else -> str(R.string.panel_reopen, label ?: pkg)
+                },
+                15, TextLo, modifier = Modifier.padding(24.dp), maxLines = 3, align = TextAlign.Center,
+            )
+            if (pkg != null) Box(Modifier.size(width = 56.dp, height = 4.dp).background(accent))
+        }
     }
 }
 
 // ---- native media widget ----
 
-/** Music / Radio switch: follows the radio while it is the active source, until the user picks a tab. */
+/** Swipeable sources: music (any active media session) and radio; follows the radio while it is the active source. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MediaSwitch(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
     val r by vm.radio.state.collectAsStateWithLifecycle()
-    var pick by remember { mutableStateOf<Boolean?>(null) }
-    val radio = pick ?: r.live
-    Column(modifier, Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-            Chip(str(R.string.tab_music), !radio, accent, icon = G.PLAY) { pick = false }
-            Chip(str(R.string.tab_radio), radio, accent, icon = G.RADIO) { pick = true }
+    val pager = rememberPagerState(initialPage = if (r.live) 1 else 0) { 2 }
+    LaunchedEffect(r.live) { pager.animateScrollToPage(if (r.live) 1 else 0) }
+    Column(modifier, Arrangement.spacedBy(6.dp)) {
+        HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 8.dp) { page ->
+            if (page == 0) MediaCard(vm, p, accent, Modifier.fillMaxSize()) else RadioPanel(vm, p, accent, Modifier.fillMaxSize())
         }
-        val body = Modifier.weight(1f).fillMaxWidth()
-        if (radio) RadioPanel(vm, p, accent, body) else MediaCard(vm, p, accent, body)
+        Row(Modifier.fillMaxWidth(), Arrangement.Center, Alignment.CenterVertically) {
+            repeat(2) { i ->
+                val on = pager.currentPage == i
+                Box(Modifier.padding(4.dp).size(if (on) 10.dp else 8.dp).clip(CircleShape).background(if (on) accent else Surface2))
+            }
+        }
     }
 }
 
@@ -201,7 +221,10 @@ private fun MediaSwitch(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modi
 private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
     val ctx = LocalContext.current
     val np by vm.media.state.collectAsStateWithLifecycle()
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(Surface).padding(16.dp), Arrangement.Center, Alignment.CenterHorizontally) {
+    Column(
+        modifier.clip(RoundedCornerShape(16.dp)).background(Surface).clickable { (np.pkg ?: p.mediaPkg)?.let { Embedder.launch(ctx, it) } }.padding(16.dp),
+        Arrangement.Center, Alignment.CenterHorizontally,
+    ) {
         if (!np.hasAccess) {
             Txt(str(R.string.media_need_access), 16, TextLo, align = TextAlign.Center, maxLines = 3)
             Box(Modifier.padding(top = 12.dp).height(48.dp).clip(RoundedCornerShape(24.dp)).background(accent).clickable { openNotificationAccess(ctx) }.padding(horizontal = 24.dp), Alignment.Center) { Txt(str(R.string.media_enable), 16, OnAccent, bold = true) }

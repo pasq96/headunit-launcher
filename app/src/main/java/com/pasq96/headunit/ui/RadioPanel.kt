@@ -76,7 +76,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             }
         }
 
-        Column(Modifier.fillMaxWidth().weight(1f), Arrangement.Center, Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxWidth().weight(1f).clickable { vm.radio.openStockApp() }, Arrangement.Center, Alignment.CenterHorizontally) {
             Txt(fmtFreq(r.freqKhz, unit = true), 52, bold = true, align = TextAlign.Center)
             Txt(r.ps ?: "", 26, accent, bold = true, align = TextAlign.Center)
             // Radio text scrolls only when wider than the panel.

@@ -72,6 +72,22 @@ object InternalAdb {
             return rc to text.replace(Regex("__rc=\\d+\\s*$"), "").trim()
         }
 
+        /** Raw binary output of [cmd] (exec: service, no tty translation). */
+        fun exec(cmd: String): ByteArray {
+            val local = nextId++
+            send(out, OPEN, local, 0, "exec:$cmd\u0000".toByteArray())
+            sock.soTimeout = 20_000
+            val bo = java.io.ByteArrayOutputStream()
+            while (true) {
+                val m = recv(inp)
+                if (m.a1 != local && m.cmd != OKAY) continue
+                when (m.cmd) {
+                    WRTE -> { bo.write(m.data); send(out, OKAY, local, m.a0) }
+                    CLSE -> { runCatching { send(out, CLSE, local, m.a0) }; return bo.toByteArray() }
+                }
+            }
+        }
+
         override fun close() { runCatching { sock.close() } }
     }
 

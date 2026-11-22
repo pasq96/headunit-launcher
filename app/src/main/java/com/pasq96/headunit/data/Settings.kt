@@ -42,6 +42,8 @@ data class Prefs(
     val drawerSpan: Int = 0,                // columns (vertical) / rows (horizontal), 0 = auto
     val drawerIconDp: Int = 64,
     val drawerLabels: Boolean = true,
+    val previews: Boolean = true,           // still previews of the nav / player apps in their panels
+    val embedWindows: Boolean = false,      // experimental: place the apps as freeform windows inside the panels
     val drawerFill: Boolean = true,         // auto grid sized so every app fits on screen (vertical, auto columns only)
     val drawerDev: Boolean = true,          // developer-options shortcut as first drawer cell
     val theme: ThemeMode = ThemeMode.DARK,
@@ -100,6 +102,8 @@ object K {
     val drawerIcon = intPreferencesKey("drawer_icon_dp")
     val drawerLabels = booleanPreferencesKey("drawer_labels")
     val drawerFill = booleanPreferencesKey("drawer_fill")
+    val previews = booleanPreferencesKey("previews")
+    val embedWindows = booleanPreferencesKey("embed_windows")
     val drawerDev = booleanPreferencesKey("drawer_dev")
     val theme = stringPreferencesKey("theme")
     val lang = stringPreferencesKey("lang")
@@ -154,6 +158,8 @@ class SettingsStore(private val ctx: Context) {
         drawerIconDp = (p[K.drawerIcon] ?: 64).coerceIn(40, 112),
         drawerLabels = p[K.drawerLabels] ?: true,
         drawerFill = p[K.drawerFill] ?: true,
+        previews = p[K.previews] ?: true,
+        embedWindows = p[K.embedWindows] ?: false,
         drawerDev = p[K.drawerDev] ?: true,
         theme = p[K.theme].toEnum(ThemeMode.DARK),
         lang = p[K.lang].toEnum(Lang.IT),

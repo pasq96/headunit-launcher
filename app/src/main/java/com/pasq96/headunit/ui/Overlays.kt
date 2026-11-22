@@ -618,6 +618,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 {
             Section(str(R.string.sec_dock), accent, G.DOCK) {
                 ToggleRow(str(R.string.dock_overlay), p.dockOverlay, accent, icon = G.DOCK) { vm.set(K.dockOverlay, it) }
+                ToggleRow(str(R.string.previews), p.previews, accent, icon = G.NAV) { vm.set(K.previews, it) }
+                ToggleRow(str(R.string.embed_windows), p.embedWindows, accent, icon = G.SPLIT) { vm.set(K.embedWindows, it) }
                 ToggleRow(str(R.string.clock_24h), p.clock24h, accent, icon = G.CLOCK) { vm.set(K.clock24, it) }
                 ToggleRow(str(R.string.show_date), p.showDate, accent, icon = G.CLOCK) { vm.set(K.date, it) }
                 ToggleRow(str(R.string.show_wifi), p.showWifi, accent, icon = G.WIFI) { vm.set(K.wifi, it) }

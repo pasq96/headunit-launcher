@@ -4,7 +4,7 @@
     <string name="panel_nav">Navigazione</string>
     <string name="panel_player">Player</string>
     <string name="panel_pick_app">Tocca per scegliere un\'app</string>
-    <string name="panel_open_fullscreen">%1$s: tocca per aprire a schermo intero (freeform non attivo, vedi README)</string>
+    <string name="panel_open_fullscreen">%1$s: tocca per aprire. L\'anteprima compare dopo la prima apertura</string>
     <string name="panel_reopen">%1$s: tocca per riaprire</string>
     <string name="media_need_access">Accesso alle notifiche richiesto per leggere il brano</string>
     <string name="media_enable">Abilita</string>
@@ -35,6 +35,8 @@
     <string name="panels_player_only">Solo player</string>
     <string name="mode_widget">Player: widget</string>
     <string name="mode_app">Player: app</string>
+    <string name="previews">Anteprima app nei riquadri (usa ADB interno)</string>
+    <string name="embed_windows">Finestre incorporate nei riquadri (freeform, sperimentale)</string>
     <string name="tab_music">Musica</string>
     <string name="tab_radio">Radio</string>
     <string name="mode_radio">Radio FM</string>

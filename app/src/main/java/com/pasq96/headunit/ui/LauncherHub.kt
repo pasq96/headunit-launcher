@@ -15,6 +15,12 @@ import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import android.os.SystemClock
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import com.pasq96.headunit.system.Previews
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.update
 import com.pasq96.headunit.data.AppInfo
 import com.pasq96.headunit.data.AppRepo
 import com.pasq96.headunit.data.AppSort
@@ -55,6 +61,9 @@ class LauncherHub(private val app: Application) {
     private val store = SettingsStore(app)
     val prefs: StateFlow<Prefs> = store.prefs.stateIn(scope, SharingStarted.Eagerly, Prefs())
     val apps = MutableStateFlow<List<AppInfo>>(emptyList())
+    /** Latest still of the nav / player app, shown in its panel. */
+    val previews = MutableStateFlow<Map<String, ImageBitmap>>(emptyMap())
+    private val lastCap = HashMap<String, Long>()
     val media = MediaRepo(app)
     val radio: ImotorRadioController = DefaultImotorRadioBridge(app)
     val illumination = IlluminationMonitor(app)
@@ -75,6 +84,7 @@ class LauncherHub(private val app: Application) {
 
     init {
         reloadApps()
+        scope.launch(Dispatchers.IO) { while (isActive) { delay(3_000); runCatching { previewTick() } } }
         // Icons are rasterised once; afterwards only a package change refreshes the list.
         val pkgFilter = IntentFilter(Intent.ACTION_PACKAGE_ADDED).apply {
             addAction(Intent.ACTION_PACKAGE_REMOVED); addAction(Intent.ACTION_PACKAGE_REPLACED); addDataScheme("package")
@@ -99,6 +109,20 @@ class LauncherHub(private val app: Application) {
     suspend fun loadedPrefs(): Prefs = store.prefs.first()
 
     private var reloadJob: Job? = null
+
+    private fun previewTick() {
+        val p = prefs.value
+        val pkgs = listOfNotNull(p.navPkg, p.mediaPkg.takeIf { p.mediaMode == MediaMode.EMBED })
+        for (pkg in pkgs) if (pkg !in previews.value) Previews.load(app, pkg)?.let { b -> previews.update { it + (pkg to b.asImageBitmap()) } }
+        if (!p.previews) return
+        val fg = Previews.foreground(app)?.takeIf { it in pkgs } ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (now - (lastCap[fg] ?: 0L) < 10_000) return
+        lastCap[fg] = now
+        val b = Previews.capture(app) ?: return
+        previews.update { it + (fg to b.asImageBitmap()) }
+        Previews.save(app, fg, b)
+    }
     fun reloadApps() { scope.launch { apps.value = AppRepo.load(app) } }
 
     fun <V> set(key: Preferences.Key<V>, value: V) { scope.launch { store.set(key, value) } }
@@ -169,6 +193,7 @@ class LauncherHub(private val app: Application) {
     /** Window an app should open into: its panel when it is the navigator / embedded player, else null (full screen). */
     fun boundsFor(pkg: String): Rect? {
         val p = prefs.value
+        if (!p.embedWindows) return null
         return when {
             pkg == p.navPkg && p.panels != Panels.MEDIA -> navRect
             pkg == p.mediaPkg && p.mediaMode == MediaMode.EMBED && p.panels != Panels.NAV -> mediaRect

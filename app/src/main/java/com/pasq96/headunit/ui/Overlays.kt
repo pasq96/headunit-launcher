@@ -188,17 +188,18 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
     val entries: List<DrawerCell> = listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) }
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
-    Column(Modifier.fillMaxSize().background(Bg.copy(alpha = 0.96f)).padding(16.dp)) {
+    Column(Modifier.fillMaxSize().background(Bg).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Txt(str(R.string.drawer_title), 24, TextHi, bold = true)
             GlyphButton(G.CLOSE, TextHi, { vm.drawer = false })
         }
         val fixedSize = p.drawerIconDp.dp
-        if (p.drawerFill && p.drawerSpan == 0 && !p.drawerHorizontal) BoxWithConstraints(Modifier.fillMaxSize()) {
+        if (p.drawerFill && !p.drawerHorizontal) BoxWithConstraints(Modifier.fillMaxSize()) {
             // pick the column count that gives the biggest icon while every cell still fits without scrolling
             val n = entries.size; val pad2 = 24f; val labelH = if (p.drawerLabels) 44f else 0f
-            var cols = 1; var icon = 0f
-            for (c in 1..n) {
+            val candidates = if (p.drawerSpan > 0) p.drawerSpan..p.drawerSpan else 1..n
+            var cols = candidates.first; var icon = 0f
+            for (c in candidates) {
                 val r = (n + c - 1) / c
                 val s = minOf(maxWidth.value / c - pad2, maxHeight.value / r - pad2 - labelH)
                 if (s > icon) { icon = s; cols = c }
@@ -209,6 +210,10 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
                 LazyVerticalGrid(GridCells.Fixed(cols), Modifier.fillMaxSize(), userScrollEnabled = false) {
                     items(entries, key = { it.key }) { Box(Modifier.fillMaxWidth().height(cellH), Alignment.Center) { cell(it, minOf(icon, 128f).dp) } }
                 }
+            } else if (p.drawerSpan > 0) {
+                // too many apps for one screen: scroll, with the icon following the column width
+                val ic = (maxWidth.value / p.drawerSpan * 0.42f).coerceIn(p.drawerIconDp.toFloat(), 104f).dp
+                LazyVerticalGrid(GridCells.Fixed(p.drawerSpan), Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, ic) } }
             } else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, fixedSize) } }
         }
         else if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, fixedSize) } }

@@ -8,10 +8,13 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.emptyPreferences
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 
-private val Context.store by preferencesDataStore("settings")
+private val Context.store by preferencesDataStore("settings", corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() })
 
 enum class DockPos { BOTTOM, LEFT, RIGHT }
 enum class MediaMode { EMBED, WIDGET, RADIO }
@@ -142,7 +145,7 @@ object K {
 }
 
 class SettingsStore(private val ctx: Context) {
-    val prefs: Flow<Prefs> = ctx.store.data.map(::read)
+    val prefs: Flow<Prefs> = ctx.store.data.catch { emit(emptyPreferences()) }.map(::read)
 
     private fun read(p: Preferences) = Prefs(
         ratio = (p[K.ratio] ?: 0.65f).coerceIn(MIN_RATIO, MAX_RATIO),
@@ -199,6 +202,15 @@ class SettingsStore(private val ctx: Context) {
     suspend fun <T> set(key: Preferences.Key<T>, value: T) = ctx.store.edit { it[key] = value }
     suspend fun setEnum(key: Preferences.Key<String>, value: Enum<*>) = set(key, value.name)
     suspend fun setPinned(v: List<String>) = set(K.pinned, v.joinToString(","))
+
+    /** Adds or removes [item] in a comma list inside one DataStore transaction, so quick taps never overwrite each other. */
+    suspend fun toggleIn(key: Preferences.Key<String>, item: String) {
+        ctx.store.edit { p ->
+            val l = p[key]?.split(',')?.filter { it.isNotEmpty() }?.toMutableList() ?: mutableListOf()
+            if (!l.remove(item)) l.add(item)
+            p[key] = l.joinToString(",")
+        }
+    }
 
     companion object {
         const val MIN_RATIO = 0.25f

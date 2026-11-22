@@ -69,4 +69,5 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 }

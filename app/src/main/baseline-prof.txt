@@ -1,0 +1,5 @@
+HSPLcom/pasq96/headunit/**;->**(**)**
+Lcom/pasq96/headunit/**;
+HSPLandroidx/compose/foundation/**;->**(**)**
+HSPLandroidx/compose/ui/**;->**(**)**
+HSPLandroidx/compose/runtime/**;->**(**)**

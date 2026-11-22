@@ -202,7 +202,7 @@ fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 44.dp, ic
         Modifier.height(height).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
             .clickable(onClick = onClick).padding(horizontal = 18.dp),
         Alignment.Center,
-    ) { Labeled(label, icon, if (selected) OnAccent else TextHi, 15, selected, 20.dp) }
+    ) { Labeled(label, icon, if (selected) onAccent(accent) else TextHi, 15, selected, 20.dp) }
 
 @Composable
 fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
@@ -256,7 +256,7 @@ fun SimpleSlider(value: Float, accent: Color, onChange: (Float) -> Unit, onDone:
         Modifier.fillMaxWidth().height(48.dp).onSizeChanged { w = it.width.coerceAtLeast(1) }
             .pointerInput(Unit) { detectTapGestures { change((it.x / w).coerceIn(0f, 1f)); done() } }
             .pointerInput(Unit) {
-                detectHorizontalDragGestures(onDragEnd = { done() }) { c, _ -> c.consume(); change((c.position.x / w).coerceIn(0f, 1f)) }
+                detectHorizontalDragGestures(onDragEnd = { done() }, onDragCancel = { done() }) { c, _ -> c.consume(); change((c.position.x / w).coerceIn(0f, 1f)) }
             },
     ) {
         val track = Surface2

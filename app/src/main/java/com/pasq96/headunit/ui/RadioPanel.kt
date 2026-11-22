@@ -96,25 +96,24 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
         } else Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 36.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 17, bold = true) }
-            RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 17, if (r.scanning) OnAccent else TextHi, bold = true) }
+            RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 17, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 17, bold = true) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 36.dp) }
         }
 
-        if (tune) p.presets.chunked(4).forEachIndexed { row, slots ->
+        if (tune) remember(p.presets) { p.presets.chunked(4) }.forEachIndexed { row, slots ->
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
                 slots.forEachIndexed { i, f ->
                     val slot = row * 4 + i
                     Box(
-                        Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp))
+                        Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp))
                             .background(if (f > 0 && f == r.freqKhz) accent else Surface2)
                             .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
                         Alignment.Center,
-                    ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 18, if (f > 0 && f == r.freqKhz) OnAccent else if (f > 0) TextHi else TextLo, bold = true) }
+                    ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 18, if (f > 0 && f == r.freqKhz) onAccent(accent) else if (f > 0) TextHi else TextLo, bold = true) }
                 }
             }
         }
-        if (tune) Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
     }
 }
 
@@ -157,7 +156,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             r.stockPresets.take(8).forEach { f ->
                 val on = f == r.freqKhz
                 Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2).clickable { vm.radio.setFrequency(f) }, Alignment.Center) {
-                    Txt(fmtFreq(f, unit = false), 18, if (on) OnAccent else TextHi, bold = true)
+                    Txt(fmtFreq(f, unit = false), 18, if (on) onAccent(accent) else TextHi, bold = true)
                 }
             }
         }
@@ -165,7 +164,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
             if (tune) {
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 20, bold = true) }
-                RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) OnAccent else TextHi, bold = true) }
+                RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 20, bold = true) }
             }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }

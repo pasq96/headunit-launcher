@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -19,6 +20,8 @@ class AppInfo(val pkg: String, val label: String, val icon: ImageBitmap, val nav
 
 object AppRepo {
     private const val ICON_PX = 128
+    // icons survive package-change reloads; an entry is rebuilt only when the APK file changed
+    private val iconCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, ImageBitmap>>()
 
     /** Launchable apps (own package excluded), sorted by label; icons rasterised once at a fixed size. */
     suspend fun load(ctx: Context): List<AppInfo> = withContext(Dispatchers.Default) {
@@ -39,7 +42,11 @@ object AppRepo {
                     val pkg = it.activityInfo.packageName
                     // first entry keeps the plain package key (saved prefs stay valid), further ones are keyed by activity
                     val key = if (seen.add(pkg)) pkg else ComponentName(pkg, it.activityInfo.name).flattenToString()
-                    AppInfo(key, it.loadLabel(pm).toString(), it.loadIcon(pm).toBitmap(ICON_PX, ICON_PX).asImageBitmap(), pkg in navPkgs, pkg in musicPkgs)
+                    val ai = it.activityInfo
+                    val stamp = File(ai.applicationInfo.sourceDir).lastModified()
+                    val icon = iconCache[key]?.takeIf { c -> c.first == stamp }?.second
+                        ?: it.loadIcon(pm).toBitmap(ICON_PX, ICON_PX).asImageBitmap().also { b -> iconCache[key] = stamp to b }
+                    AppInfo(key, it.loadLabel(pm).toString(), icon, pkg in navPkgs, pkg in musicPkgs)
                 }
             }
             .sortedBy { it.label.lowercase() }

@@ -12,7 +12,7 @@ object Previews {
     fun foreground(ctx: Context): String? = runCatching {
         val um = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
-        val ev = um.queryEvents(now - 120_000, now)
+        val ev = um.queryEvents(now - 30_000, now)
         val e = android.app.usage.UsageEvents.Event()
         var last: String? = null
         while (ev.hasNextEvent()) { ev.getNextEvent(e); if (e.eventType == 1) last = e.packageName } // 1 = activity resumed
@@ -20,10 +20,19 @@ object Previews {
     }.getOrNull()
 
     /** Halved on decode to keep the bitmap small. */
-    fun capture(ctx: Context): Bitmap? = runCatching {
-        val png = InternalAdb.open(ctx).use { it.exec("screencap -p") }
-        BitmapFactory.decodeByteArray(png, 0, png.size, BitmapFactory.Options().apply { inSampleSize = 2 })
-    }.getOrNull()
+    @Synchronized
+    fun capture(ctx: Context): Bitmap? {
+        // one adb session is kept between shots (a fresh RSA handshake per shot is costly on this CPU); reopened once if it went stale
+        repeat(2) {
+            val s = session ?: runCatching { InternalAdb.open(ctx) }.getOrNull()?.also { session = it } ?: return null
+            val png = runCatching { s.exec("screencap -p") }.getOrNull()
+            if (png != null && png.isNotEmpty()) return BitmapFactory.decodeByteArray(png, 0, png.size, BitmapFactory.Options().apply { inSampleSize = 2 })
+            runCatching { s.close() }; session = null
+        }
+        return null
+    }
+
+    @Volatile private var session: InternalAdb.Session? = null
 
     private fun file(ctx: Context, pkg: String) = File(ctx.cacheDir, "preview_$pkg.jpg")
 

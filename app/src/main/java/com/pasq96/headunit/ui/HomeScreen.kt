@@ -3,6 +3,7 @@ package com.pasq96.headunit.ui
 import android.graphics.Rect
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -50,6 +51,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.R
@@ -97,7 +99,6 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
     var width by remember { mutableIntStateOf(1) }
     var dragging by remember { mutableStateOf(false) }
     var drag by remember { mutableFloatStateOf(-1f) }          // live ratio of the LEFT panel while/after dragging
-    val left = if (drag >= 0f) drag else p.ratio
     LaunchedEffect(p.ratio) { if (!dragging) drag = -1f }       // stored value caught up: drop the override
 
     val showNav = p.panels != Panels.MEDIA
@@ -134,14 +135,31 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
     val slots = (if (p.swapPanels) listOf(false to mediaSlot, true to navSlot) else listOf(true to navSlot, false to mediaSlot))
         .filter { (isNav, _) -> if (isNav) showNav else showMedia }
 
-    Row(modifier.onSizeChanged { width = it.width.coerceAtLeast(1) }.padding(8.dp)) {
-        slots.forEachIndexed { i, (_, slot) ->
-            val w = if (slots.size == 1) 1f else if (i == 0) left else 1f - left
-            slot(Modifier.weight(w).fillMaxHeight())
-            if (slots.size == 2 && i == 0) Handle(p.handleDp, accent,
-                onStart = { dragging = true; drag = left },
-                onDrag = { dx -> drag = (drag + dx / width).coerceIn(SettingsStore.MIN_RATIO, SettingsStore.MAX_RATIO) },
-                onEnd = { dragging = false; vm.set(K.ratio, drag) })
+    // The ratio is read in the measure pass only: dragging relayouts the panels without recomposing them.
+    Layout(
+        content = {
+            slots.forEachIndexed { i, (_, slot) ->
+                slot(Modifier)
+                if (slots.size == 2 && i == 0) Handle(p.handleDp, accent,
+                    onStart = { dragging = true; if (drag < 0f) drag = p.ratio },
+                    onDrag = { dx -> drag = (drag + dx / width).coerceIn(SettingsStore.MIN_RATIO, SettingsStore.MAX_RATIO) },
+                    onEnd = { dragging = false; vm.set(K.ratio, drag) })
+            }
+        },
+        modifier = modifier.onSizeChanged { width = it.width.coerceAtLeast(1) }.padding(8.dp),
+    ) { ms, c ->
+        val w = c.maxWidth; val h = c.maxHeight
+        if (ms.size < 3) {
+            val only = ms.firstOrNull()?.measure(Constraints.fixed(w, h))
+            layout(w, h) { only?.place(0, 0) }
+        } else {
+            val hw = p.handleDp.dp.roundToPx()
+            val hit = maxOf(hw, 44.dp.roundToPx())
+            val lw = ((w - hw) * (if (drag >= 0f) drag else p.ratio)).roundToInt()
+            val a = ms[0].measure(Constraints.fixed(lw, h))
+            val hd = ms[1].measure(Constraints.fixed(hit, h))
+            val b = ms[2].measure(Constraints.fixed(w - hw - lw, h))
+            layout(w, h) { a.place(0, 0); b.place(lw + hw, 0); hd.place(lw + hw / 2 - hit / 2, 0) }
         }
     }
 }
@@ -153,7 +171,7 @@ private fun Handle(widthDp: Int, accent: Color, onStart: () -> Unit, onDrag: (Fl
     val drag by rememberUpdatedState(onDrag)
     val end by rememberUpdatedState(onEnd)
     Box(
-        Modifier.width(widthDp.dp).fillMaxHeight().pointerInput(Unit) {
+        Modifier.fillMaxSize().pointerInput(Unit) {
             detectHorizontalDragGestures(onDragStart = { start() }, onDragEnd = { end() }, onDragCancel = { end() }) { c, dx -> c.consume(); drag(dx) }
         },
         Alignment.Center,
@@ -240,7 +258,7 @@ private fun MediaCard(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifi
     ) {
         if (!np.hasAccess) {
             Txt(str(R.string.media_need_access), 16, TextLo, align = TextAlign.Center, maxLines = 3)
-            Box(Modifier.padding(top = 12.dp).height(48.dp).clip(RoundedCornerShape(24.dp)).background(accent).clickable { openNotificationAccess(ctx) }.padding(horizontal = 24.dp), Alignment.Center) { Txt(str(R.string.media_enable), 16, OnAccent, bold = true) }
+            Box(Modifier.padding(top = 12.dp).height(48.dp).clip(RoundedCornerShape(24.dp)).background(accent).clickable { openNotificationAccess(ctx) }.padding(horizontal = 24.dp), Alignment.Center) { Txt(str(R.string.media_enable), 16, onAccent(accent), bold = true) }
             return@Column
         }
         Box(Modifier.size(160.dp).clip(RoundedCornerShape(12.dp)).background(Surface2), Alignment.Center) {
@@ -276,7 +294,7 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
     val vertical = p.dock != DockPos.BOTTOM
     val pinned = remember(apps, p.pinned) { p.pinned.mapNotNull { pkg -> apps.firstOrNull { it.pkg == pkg } } }
     val mod = dockSize(p).background(Surface)
-    val icon: @Composable (AppInfo) -> Unit = { a -> DockIcon(a, p, vm, accent) }
+    val icon: @Composable (AppInfo) -> Unit = { a -> DockIcon(a, a.pkg == p.navPkg || a.pkg == p.mediaPkg, p.iconDp, p.dockLabels && (p.dock != com.pasq96.headunit.data.DockPos.BOTTOM || p.dockDp >= p.iconDp + 40), vm, accent) }
     val buttons: @Composable () -> Unit = {
         GlyphButton(when (p.panels) { Panels.BOTH -> G.SPLIT; Panels.NAV -> G.SOLO_L; Panels.MEDIA -> G.SOLO_R }, TextHi, { vm.cyclePanels() })
         GlyphButton(G.GEAR, TextHi, { vm.settings = !vm.settings; vm.drawer = false })
@@ -299,24 +317,23 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun DockIcon(a: AppInfo, p: Prefs, vm: LauncherHub, accent: Color) {
+private fun DockIcon(a: AppInfo, role: Boolean, iconDp: Int, labels: Boolean, vm: LauncherHub, accent: Color) {
     val ctx = LocalContext.current
-    val role = a.pkg == p.navPkg || a.pkg == p.mediaPkg
     Column(
         Modifier.clip(RoundedCornerShape(14.dp))
             .androidxCombined(onClick = { vm.recordUse(a.pkg); Embedder.launch(ctx, a.pkg, vm.boundsFor(a.pkg)) }, onLong = { vm.menuApp = a })
             .then(if (role) Modifier.border(2.dp, accent, RoundedCornerShape(14.dp)) else Modifier).padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(a.icon, a.label, Modifier.size(p.iconDp.dp))
-        if (p.dockLabels) Txt(a.label, 12, TextLo, modifier = Modifier.width(p.iconDp.dp + 8.dp), align = TextAlign.Center)
+        Image(a.icon, a.label, Modifier.size(iconDp.dp))
+        if (labels) Txt(a.label, 12, TextLo, modifier = Modifier.width(iconDp.dp + 8.dp), align = TextAlign.Center)
     }
 }
 
 @Composable
 private fun ClockBlock(p: Prefs, vertical: Boolean) {
     val ctx = LocalContext.current
-    val time by remember(p.clock24h) { CarTools.clock(p.clock24h) }.collectAsStateWithLifecycle("")
+    val time by remember(p.clock24h) { CarTools.clock(ctx, p.clock24h) }.collectAsStateWithLifecycle("")
     // time ticks every minute, which is also when the date can change
     val date = remember(time, p.lang) { SimpleDateFormat("EEE d MMM", Locale.forLanguageTag(p.lang.tag)).format(Date()) }
     val icons: @Composable () -> Unit = {

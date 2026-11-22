@@ -12,6 +12,7 @@ import com.pasq96.headunit.MainActivity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
+import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +42,7 @@ import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -58,7 +60,9 @@ enum class PickerKind { NAV, PLAYER }
  * Owned by [com.pasq96.headunit.HeadUnitApp], not by an activity.
  */
 class LauncherHub(private val app: Application) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate + CoroutineExceptionHandler { _, e -> Log.w("HUHub", "uncaught", e) })
+    private var loadJob: Job? = null
+    var bootHandled = false
     private val store = SettingsStore(app)
     val prefs: StateFlow<Prefs> = store.prefs.stateIn(scope, SharingStarted.Eagerly, Prefs())
     val apps = MutableStateFlow<List<AppInfo>>(emptyList())
@@ -116,6 +120,7 @@ class LauncherHub(private val app: Application) {
     private fun previewTick() {
         val p = prefs.value
         val pkgs = listOfNotNull(p.navPkg, p.mediaPkg.takeIf { p.mediaMode == MediaMode.EMBED })
+        if (pkgs.isEmpty()) return
         for (pkg in pkgs) if (pkg !in previews.value) Previews.load(app, pkg)?.let { b -> previews.update { it + (pkg to b.asImageBitmap()) } }
         if (!p.previews) return
         val fg = Previews.foreground(app)?.takeIf { it in pkgs } ?: return
@@ -126,20 +131,14 @@ class LauncherHub(private val app: Application) {
         previews.update { it + (fg to b.asImageBitmap()) }
         Previews.save(app, fg, b)
     }
-    fun reloadApps() { scope.launch { apps.value = AppRepo.load(app) } }
+    fun reloadApps() { loadJob?.cancel(); loadJob = scope.launch { apps.value = AppRepo.load(app) } }
 
     fun <V> set(key: Preferences.Key<V>, value: V) { scope.launch { store.set(key, value) } }
     fun setEnum(key: Preferences.Key<String>, value: Enum<*>) { scope.launch { store.setEnum(key, value) } }
 
-    fun togglePin(pkg: String) {
-        val cur = prefs.value.pinned
-        scope.launch { store.setPinned(if (pkg in cur) cur - pkg else cur + pkg) }
-    }
+    fun togglePin(pkg: String) { scope.launch { store.toggleIn(K.pinned, pkg) } }
 
-    fun toggleHidden(pkg: String) {
-        val cur = prefs.value.hidden
-        set(K.hidden, (if (pkg in cur) cur - pkg else cur + pkg).joinToString(","))
-    }
+    fun toggleHidden(pkg: String) { scope.launch { store.toggleIn(K.hidden, pkg) } }
 
     /** Moves [pkg] inside the custom order (which first absorbs the current visible order); [delta] = null sends it to the top. */
     fun moveInOrder(pkg: String, delta: Int?) {

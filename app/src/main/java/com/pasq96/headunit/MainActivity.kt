@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
         }
 
         handleIntent(intent)
-        if (savedInstanceState == null) autoStart()
+        if (!vm.bootHandled) { vm.bootHandled = true; autoStart() }
     }
 
     override fun onStart() {

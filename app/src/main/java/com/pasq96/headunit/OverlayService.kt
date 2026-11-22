@@ -5,6 +5,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
+import android.os.PowerManager
+import android.content.IntentFilter
+import android.content.BroadcastReceiver
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.IBinder
@@ -37,6 +40,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -60,18 +66,27 @@ class OverlayService : Service() {
         return START_STICKY
     }
 
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
         owner.create()
         wm = getSystemService(WindowManager::class.java)
         startForeground(NOTIFICATION_ID, notification())
-        scope.launch { hub.prefs.collect { updateDock(it) } }
+        // the overlay compose tree sleeps with the screen: no sensor polling or recomposition while the unit is off
+        owner.setActive(getSystemService(PowerManager::class.java).isInteractive)
+        ContextCompat.registerReceiver(this, screenRx, IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        scope.launch { hub.prefs.map { Triple(it.dockOverlay, it.dock, it.dockDp) }.distinctUntilChanged().collect { updateDock(hub.prefs.value) } }
         scope.launch { snapshotFlow { hub.hasOverlay() }.collect { updatePanels(it) } }
-        scope.launch { hub.prefs.collect { updateShields() } }
-        scope.launch { snapshotFlow { Triple(hub.homeVisible, hub.hasOverlay(), hub.navRect to hub.mediaRect) }.collect { updateShields() } }
+        scope.launch { hub.prefs.map { listOf(it.embedWindows, it.panels, it.navPkg, it.mediaPkg, it.mediaMode) }.distinctUntilChanged().collect { updateShields() } }
+        scope.launch { snapshotFlow { Triple(hub.homeVisible, hub.hasOverlay(), hub.navRect to hub.mediaRect) }.debounce(100).collect { updateShields() } }
+    }
+
+    private val screenRx = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { owner.setActive(i.action == Intent.ACTION_SCREEN_ON) }
     }
 
     override fun onDestroy() {
+        runCatching { unregisterReceiver(screenRx) }
         dockView?.let { runCatching { wm.removeView(it) } }
         panelView?.let { runCatching { wm.removeView(it) } }
         shieldViews.values.forEach { runCatching { wm.removeView(it.first) } }; shieldViews.clear()
@@ -162,6 +177,7 @@ class OverlayService : Service() {
         override val savedStateRegistry: SavedStateRegistry get() = saved.savedStateRegistry
         override val viewModelStore = ViewModelStore()
         fun create() { saved.performAttach(); saved.performRestore(null); registry.currentState = Lifecycle.State.RESUMED }
+        fun setActive(on: Boolean) { if (registry.currentState != Lifecycle.State.DESTROYED) registry.currentState = if (on) Lifecycle.State.RESUMED else Lifecycle.State.CREATED }
         fun destroy() { registry.currentState = Lifecycle.State.DESTROYED; viewModelStore.clear() }
     }
 

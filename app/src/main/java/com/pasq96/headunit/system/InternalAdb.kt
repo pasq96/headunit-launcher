@@ -91,10 +91,31 @@ object InternalAdb {
         override fun close() { runCatching { sock.close() } }
     }
 
+    @Volatile private var lastPort = 0
+
+    private fun prop(name: String): Int = runCatching {
+        val c = Class.forName("android.os.SystemProperties")
+        (c.getMethod("get", String::class.java).invoke(null, name) as String).trim().toInt()
+    }.getOrDefault(0)
+
+    /** Candidate local adbd ports: last working one, system properties, then the classic 5555. */
+    private fun candidates(): List<Int> =
+        listOf(lastPort, prop("service.adb.tcp.port"), prop("persist.adb.tcp.port"), PORT, 5554, 5556)
+            .filter { it in 1..65535 }.distinct()
+
+    private fun connectAny(): Socket {
+        var err: String? = null
+        for (port in candidates()) {
+            val s = Socket()
+            try { s.connect(InetSocketAddress("127.0.0.1", port), 1500); lastPort = port; return s }
+            catch (e: IOException) { err = "${port}: ${e.message}"; runCatching { s.close() } }
+        }
+        throw AdbException(Fail.CONNECT, err)
+    }
+
     /** Connects and authenticates; throws [AdbException]. Blocking, call off the main thread. */
     fun open(ctx: Context): Session {
-        val s = Socket()
-        try { s.connect(InetSocketAddress("127.0.0.1", PORT), 2000) } catch (e: IOException) { throw AdbException(Fail.CONNECT, e.message) }
+        val s = connectAny()
         s.tcpNoDelay = true; s.soTimeout = 10_000
         try {
             val out = s.getOutputStream(); val inp = DataInputStream(BufferedInputStream(s.getInputStream()))

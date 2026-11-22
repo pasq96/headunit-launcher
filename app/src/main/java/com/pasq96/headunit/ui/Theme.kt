@@ -9,8 +9,11 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.data.Lang
@@ -32,19 +35,23 @@ val Surface2: Color @Composable @ReadOnlyComposable get() = LocalPalette.current
 val TextHi: Color @Composable @ReadOnlyComposable get() = LocalPalette.current.hi
 val TextLo: Color @Composable @ReadOnlyComposable get() = LocalPalette.current.lo
 
-/** Text/glyph colour on top of an accent fill: same in both themes. */
 val OnAccent = Color(0xFF0B0F14)
-val Warn = Color(0xFFFF5252)
+
+/** Readable text colour on top of an accent fill: dark on light accents, white on dark ones. */
+fun onAccent(c: Color): Color = if (c.luminance() > 0.4f) OnAccent else Color.White
+
+val Warn: Color @Composable @ReadOnlyComposable get() = if (LocalPalette.current === LightPalette) Color(0xFFC62828) else Color(0xFFFF5252)
 
 /** Palette + language for one Compose root (activity, dock window, panels window): each root reads the same hub state. */
 @Composable
 fun HeadUnitTheme(hub: LauncherHub, content: @Composable () -> Unit) {
-    val p by hub.prefs.collectAsStateWithLifecycle()
+    val theme by remember { hub.prefs.map { it.theme }.distinctUntilChanged() }.collectAsStateWithLifecycle(hub.prefs.value.theme)
+    val lang by remember { hub.prefs.map { it.lang }.distinctUntilChanged() }.collectAsStateWithLifecycle(hub.prefs.value.lang)
     val lit by hub.lit.collectAsStateWithLifecycle()
     // AUTO: LEDs on = night = dark; unknown signal stays dark (safer when driving at night).
-    val dark = when (p.theme) { ThemeMode.DARK -> true; ThemeMode.LIGHT -> false; ThemeMode.AUTO -> lit ?: true }
+    val dark = when (theme) { ThemeMode.DARK -> true; ThemeMode.LIGHT -> false; ThemeMode.AUTO -> lit ?: true }
     val base = LocalContext.current
-    val l10n = remember(base, p.lang) { localized(base, p.lang) }
+    val l10n = remember(base, lang) { localized(base, lang) }
     CompositionLocalProvider(LocalPalette provides (if (dark) DarkPalette else LightPalette), LocalL10n provides l10n) { content() }
 }
 

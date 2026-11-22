@@ -16,6 +16,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.View
@@ -42,16 +43,20 @@ object CarTools {
     // ---- polling flows: collected with collectAsStateWithLifecycle, so they stop when the launcher is not visible ----
 
     fun stats(ctx: Context, everyMs: Long = 2_000): Flow<Stats> = flow {
-        while (true) { emit(readStats(ctx)); delay(everyMs) }
+        while (true) { runCatching { readStats(ctx) }.getOrNull()?.let { emit(it) }; delay(everyMs) }
     }.flowOn(Dispatchers.IO)
 
     fun links(ctx: Context, everyMs: Long = 5_000): Flow<Links> = flow {
-        while (true) { emit(readLinks(ctx)); delay(everyMs) }
+        while (true) { runCatching { readLinks(ctx) }.getOrNull()?.let { emit(it) }; delay(everyMs) }
     }.flowOn(Dispatchers.IO)
 
-    fun clock(h24: Boolean = true): Flow<String> = flow {
+    /** Follows the system clock broadcasts, so the time is right right after ACC-on and after time zone changes. */
+    fun clock(ctx: Context, h24: Boolean = true): Flow<String> = callbackFlow {
         val fmt = SimpleDateFormat(if (h24) "HH:mm" else "h:mm a", Locale.getDefault())
-        while (true) { emit(fmt.format(Date())); delay(60_000 - System.currentTimeMillis() % 60_000 + 50) }
+        val rx = object : android.content.BroadcastReceiver() { override fun onReceive(c: Context, i: Intent) { trySend(fmt.format(Date())) } }
+        trySend(fmt.format(Date()))
+        ctx.registerReceiver(rx, IntentFilter(Intent.ACTION_TIME_TICK).apply { addAction(Intent.ACTION_TIME_CHANGED); addAction(Intent.ACTION_TIMEZONE_CHANGED) })
+        awaitClose { runCatching { ctx.unregisterReceiver(rx) } }
     }
 
     /** GPS speed in km/h (null = no fix / no permission). Registers the provider only while collected. */
@@ -59,15 +64,20 @@ object CarTools {
     fun speedKmh(ctx: Context): Flow<Float?> = callbackFlow {
         val lm = ctx.getSystemService(LocationManager::class.java)
         val granted = ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (!granted || !lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) { trySend(null); awaitClose { }; return@callbackFlow }
+        if (!granted) { trySend(null); awaitClose { }; return@callbackFlow }
         val l = object : LocationListener {
-            override fun onLocationChanged(loc: Location) { trySend(if (loc.hasSpeed()) loc.speed * 3.6f else null) }
+            override fun onLocationChanged(loc: Location) {
+                val fresh = SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos < 5_000_000_000L
+                trySend(if (loc.hasSpeed() && fresh) loc.speed * 3.6f else null)
+            }
             @Deprecated("legacy") override fun onStatusChanged(p: String?, s: Int, e: android.os.Bundle?) {}
             override fun onProviderEnabled(p: String) {}
             override fun onProviderDisabled(p: String) { trySend(null) }
         }
-        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f, l, Looper.getMainLooper())
-        awaitClose { lm.removeUpdates(l) }
+        trySend(null)
+        // registered even while GPS is off: the provider can come on later and onLocationChanged starts flowing
+        runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f, l, Looper.getMainLooper()) }
+        awaitClose { runCatching { lm.removeUpdates(l) } }
     }
 
     // ---- readers ----
@@ -76,16 +86,34 @@ object CarTools {
         val mi = ActivityManager.MemoryInfo().also { ctx.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
         val batt = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val mv = batt?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-        return Stats(cpuTempC(), mi.availMem shr 20, mi.totalMem shr 20, if (mv > 0) (if (mv > 100) mv / 1000f else mv.toFloat()) else null)
+        val intent = if (mv > 0) (if (mv > 100) mv / 1000f else mv.toFloat()) else null
+        // The Android battery of a head unit is its 3 V backup cell; the car's 12 V rail, when exposed, is a power_supply node.
+        val best = listOfNotNull(intent, supplyVolts()).maxOrNull()
+        return Stats(cpuTempC(), mi.availMem shr 20, mi.totalMem shr 20, best)
     }
 
+    private val supplyFiles: List<File> by lazy {
+        File("/sys/class/power_supply").listFiles()?.flatMap { d ->
+            listOf("voltage_now", "voltage_avg", "input_voltage", "vbus_voltage").map { File(d, it) }
+        }.orEmpty()
+    }
+
+    private fun supplyVolts(): Float? = supplyFiles
+        .mapNotNull { runCatching { it.readText().trim().toDouble() }.getOrNull() }
+        .map { if (it > 1_000_000) it / 1_000_000 else if (it > 1000) it / 1000 else it }
+        .filter { it in 1.0..60.0 }.maxOrNull()?.toFloat()
+
     /** Hottest thermal zone, in °C (sysfs reports millidegrees on most kernels). */
+    private val thermalFiles: List<File> by lazy {
+        File("/sys/class/thermal").listFiles { f -> f.name.startsWith("thermal_zone") }?.map { File(it, "temp") }.orEmpty()
+    }
+
     private fun cpuTempC(): Float? =
-        File("/sys/class/thermal").listFiles { f -> f.name.startsWith("thermal_zone") }
-            ?.mapNotNull { runCatching { File(it, "temp").readText().trim().toFloat() }.getOrNull() }
-            ?.map { if (it > 1000f) it / 1000f else it }
-            ?.filter { it in 1f..150f }
-            ?.maxOrNull()
+        thermalFiles
+            .mapNotNull { runCatching { it.readText().trim().toFloat() }.getOrNull() }
+            .map { if (it > 1000f) it / 1000f else it }
+            .filter { it in 1f..150f }
+            .maxOrNull()
 
     @Suppress("DEPRECATION")
     private fun readLinks(ctx: Context): Links {
@@ -105,7 +133,9 @@ object CarTools {
 
     fun setBrightness(ctx: Context, v: Int) {
         if (!canWriteSettings(ctx)) return
-        Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+        val cr = ctx.contentResolver
+        if (Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, 0) != Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+            Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
         Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS, v.coerceIn(1, 255))
     }
 
@@ -115,7 +145,9 @@ object CarTools {
     fun setNightOverlay(ctx: Context, on: Boolean, alpha: Float = 0.55f) {
         val app = ctx.applicationContext
         val wm = app.getSystemService(WindowManager::class.java)
-        overlay?.let { runCatching { wm.removeView(it) } }
+        val cur = overlay
+        if (on && cur != null && cur.isAttachedToWindow) { cur.setBackgroundColor(Color.argb((alpha * 255).toInt(), 0, 0, 0)); return }
+        cur?.let { runCatching { wm.removeView(it) } }
         overlay = null
         if (!on || !Settings.canDrawOverlays(app)) return
         val type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY

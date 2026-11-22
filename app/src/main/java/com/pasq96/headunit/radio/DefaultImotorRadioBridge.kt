@@ -1,10 +1,7 @@
 package com.pasq96.headunit.radio
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.os.SystemClock
-import android.util.Log
 import com.pasq96.headunit.embed.Embedder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -29,16 +27,30 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     override val state: StateFlow<RadioState> = _state.asStateFlow()
     private val fw = FrameworkRadio(ctx)
     override val canTune = true
-    private var job: Job? = null
+    private var logJob: Job? = null
+    private var pollJob: Job? = null
+    private var watchdog: Job? = null
     @Volatile private var proc: Process? = null
     @Volatile private var lastSeen = 0L
-    private var watchdog: Job? = null
 
     override fun start() {
-        if (job?.isActive == true) return
-        scope.launch { runCatching { fw.connect() }; while (isActive) { runCatching { poll() }; delay(700) } }
-        job = scope.launch {
-            while (isActive) { runCatching { readLog() }; delay(5_000) }
+        if (pollJob?.isActive == true) return
+        pollJob = scope.launch {
+            while (isActive) {
+                if (!fw.ready) runCatching { fw.connect() }
+                runCatching { poll() }
+                delay(if (_state.value.live) POLL_MS else IDLE_POLL_MS)
+            }
+        }
+        logJob = scope.launch {
+            var wait = 5_000L
+            while (isActive) {
+                val t0 = SystemClock.elapsedRealtime()
+                runCatching { readLog() }
+                // logcat exits at once without READ_LOGS: back off instead of respawning every few seconds
+                wait = if (SystemClock.elapsedRealtime() - t0 < 3_000) (wait * 2).coerceAtMost(60_000) else 5_000
+                delay(wait)
+            }
         }
         watchdog = scope.launch {
             while (isActive) {
@@ -49,7 +61,8 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     }
 
     override fun stop() {
-        job?.cancel(); job = null
+        pollJob?.cancel(); pollJob = null
+        logJob?.cancel(); logJob = null
         watchdog?.cancel(); watchdog = null
         proc?.destroy(); proc = null
     }
@@ -58,38 +71,46 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     private fun readLog() {
         val p = ProcessBuilder("logcat", "-T", "1", "-s", "$LOG_TAG:D", "RadioControlProxy:D", "RadioControl:I").redirectErrorStream(true).start()
         proc = p
-        p.inputStream.bufferedReader().useLines { lines ->
-            for (line in lines) parse(line)
-        }
+        try {
+            p.inputStream.bufferedReader().useLines { lines -> for (line in lines) parse(line) }
+        } finally { p.destroy(); if (proc === p) proc = null }
     }
 
     private fun parse(line: String) {
-        RE_STATION.find(line)?.let { m -> bandOf(m.groupValues[2].toInt()); apply(m.groupValues[1].toInt()); return }
-        RE_WORK.find(line)?.let { m -> touch { copy(scanning = m.groupValues[1] == "1") }; return }
-        RE_LIST.find(line)?.let { m -> presets(m.groupValues[1]); return }
-        RE_STATUS.find(line)?.let { m ->
-            val g = m.groupValues
-            touch { copy(ta = g[1] == "true", af = g[2] == "true", stereoOn = g[3] == "true", loc = g[4] == "true") }
+        if (line.contains("onStationChanged")) RE_STATION.find(line)?.let { m -> bandOf(m.groupValues[2].toInt()); apply(m.groupValues[1].toInt()); return }
+        if (line.contains("WorkInfo")) RE_WORK.find(line)?.let { m -> touch { copy(scanning = m.groupValues[1] == "1") }; return }
+        if (line.contains("FM list")) RE_LIST.find(line)?.let { m -> presets(m.groupValues[1]); return }
+        if (line.contains("onRadioStatusChanged")) {
+            RE_STATUS.find(line)?.let { m ->
+                val g = m.groupValues
+                touch { copy(ta = g[1] == "true", af = g[2] == "true", stereoOn = g[3] == "true", loc = g[4] == "true") }
+            }
+            RE_ST.find(line)?.let { m -> touch { copy(stereo = m.groupValues[1] == "true") } }
+            RE_RT.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }, rt = m.groupValues[2].trim().ifEmpty { null }) } }
+            return
         }
-        RE_FREQ.find(line)?.groupValues?.get(1)?.toIntOrNull()?.let { apply(it); return }
-        RE_PS.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }) }; return }
-        RE_ST.find(line)?.let { m -> touch { copy(stereo = m.groupValues[1] == "true") } }
-        RE_RT.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }, rt = m.groupValues[2].trim().ifEmpty { null }) } }
+        if (line.contains("PS name:")) { RE_PS.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }) } }; return }
+        if (line.contains("setRadioInfo")) RE_FREQ.find(line)?.groupValues?.get(1)?.toIntOrNull()?.let { apply(it) }
     }
 
     /** Direct state read from the manager: works without READ_LOGS and keeps the panel live while the stock app is closed. */
     private fun poll() {
-        val f = (fw.get("getCurrentStation", "getFreq") as? Int)?.takeIf { it > 0 } ?: return
-        (fw.get("getCurrentStation", "getBand") as? Int)?.let { bandOf(it) }
+        val st0 = fw.get("getCurrentStation") ?: return
+        val f = (call0(st0, "getFreq") as? Int)?.takeIf { it > 0 } ?: return
+        (call0(st0, "getBand") as? Int)?.let { bandOf(it) }
         apply(f)
         val st = fw.get("getRadioStatus") ?: return
-        fun flag(n: String) = runCatching { st.javaClass.getMethod(n).invoke(st) as? Boolean }.getOrNull()
-        val ps = runCatching { st.javaClass.getMethod("getPsName").invoke(st) as? String }.getOrNull()?.trim()
+        fun flag(n: String) = call0(st, n) as? Boolean
+        val ps = (call0(st, "getPsName") as? String)?.trim()
         touch {
             copy(ta = flag("getStatusTA") ?: ta, af = flag("getStatusAF") ?: af, stereoOn = flag("getStatusST") ?: stereoOn,
                 loc = flag("getStatusFMLOC") ?: loc, stereo = flag("getStereo") ?: stereo, ps = if (ps.isNullOrEmpty()) this.ps else ps)
         }
     }
+
+    private val getters = java.util.concurrent.ConcurrentHashMap<String, java.lang.reflect.Method?>()
+    private fun call0(o: Any, name: String): Any? =
+        runCatching { getters.getOrPut("${o.javaClass.name}#$name") { o.javaClass.getMethod(name) }?.invoke(o) }.getOrNull()
 
     private fun bandOf(i: Int) { touch { copy(band = when (i) { 1 -> Band.FM1; 2 -> Band.FM2; else -> band }) } }
 
@@ -99,7 +120,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         if (l.isNotEmpty()) touch { copy(stockPresets = l) }
     }
 
-    private fun touch(f: RadioState.() -> RadioState) { lastSeen = SystemClock.elapsedRealtime(); _state.value = _state.value.f().copy(connected = true, live = true) }
+    private fun touch(f: RadioState.() -> RadioState) { lastSeen = SystemClock.elapsedRealtime(); _state.update { it.f().copy(connected = true, live = true) } }
 
     /** FM comes as tens of kHz (9540 = 95.40 MHz), AM as kHz. */
     private fun apply(raw: Int) {
@@ -148,23 +169,16 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
 
     override fun openStockApp(): Boolean = Embedder.launch(ctx, PKG)
 
-    private fun cmd(action: String) {
-        val r = runCatching { ctx.startService(Intent(action).setComponent(ComponentName(PKG, SERVICE))) }
-        Log.w("HURadio", "$action -> ${r.getOrNull()} ${r.exceptionOrNull() ?: ""}") // read with: logcat -d -s HURadio
-    }
-
     private companion object {
         const val PKG = "com.imotor.fmam"
-        const val SERVICE = "com.imotor.radiosupport.radio.RadioService"
         const val LOG_TAG = "VehicleHelperService"
-        const val NEXT = "com.imotor.radio.ACITON_NEXT_STATION" // sic: the app's own spelling
-        const val PREV = "com.imotor.radio.ACTION_PREV_STATION"
-        const val BAND = "com.imotor.radio.ACTION_SWITCH_BAND"
         const val LIVE_MS = 4_000L
+        const val POLL_MS = 700L
+        const val IDLE_POLL_MS = 3_000L
         val RE_STATION = Regex("RadioControl: +---> onStationChanged: StationInfo \\{freq=(\\d+), band=(\\d)")
         val RE_WORK = Regex("WorkInfo \\{workMode=\\d+, seekType=\\d+, seekStatus=(\\d)")
         val RE_LIST = Regex("FM list: \\[([^\\]]*)\\]")
-        val RE_STATUS = Regex("mStatusTA:(\\w+),.*?mStatusAF:(\\w+),.*?mStatusST:(\\w+),mStatusFMLOC:(\\w+)")
+        val RE_STATUS = Regex("mStatusTA:(\\w+),mStatusAF:(\\w+),[^}]*?mStatusST:(\\w+),mStatusFMLOC:(\\w+)")
         val RE_FREQ = Regex("setRadioInfo:(\\d+)")
         val RE_PS = Regex("PS name:(.*?)\\s+tp:")
         val RE_ST = Regex("mStereo:(true|false)")

@@ -49,6 +49,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -93,12 +94,13 @@ import com.pasq96.headunit.system.InternalAdb
 import com.pasq96.headunit.system.PermissionGranter
 import com.pasq96.headunit.tools.CarTools
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 private val Scrim = Color(0xCC000000)
-private val Danger = Color(0xFFFF5252)
+private val Danger: Color @Composable @ReadOnlyComposable get() = Warn
 
 // ---- system shortcuts (also the safe-mode exit) ----
 
@@ -186,7 +188,7 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
     }
     // system shortcuts come first: Car Tools (no dock button anymore), then developer options when enabled
     val shown = remember(apps, p.hidden, p.sort, p.customOrder, p.usage) { orderedApps(apps, p) }
-    val entries: List<DrawerCell> = listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) }
+    val entries: List<DrawerCell> = remember(shown, p.drawerDev) { listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) } }
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
     Column(Modifier.fillMaxSize().background(Bg).padding(16.dp)) {
@@ -252,7 +254,7 @@ private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
 
     Dim(close) {
         Column(
-            Modifier.align(Alignment.Center).width(440.dp).heightIn(max = 680.dp).clip(RoundedCornerShape(20.dp)).background(Surface)
+            Modifier.align(Alignment.Center).width(440.dp).heightIn(max = 560.dp).clip(RoundedCornerShape(20.dp)).background(Surface)
                 .pointerInput(Unit) { detectTapGestures { } }.verticalScroll(rememberScrollState()).padding(20.dp),
             Arrangement.spacedBy(10.dp),
         ) {
@@ -289,7 +291,7 @@ private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
 @Composable
 private fun MenuBtn(text: String, tint: Color, icon: G, onClick: () -> Unit) =
     Row(
-        Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = onClick).padding(horizontal = 18.dp),
+        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = onClick).padding(horizontal = 18.dp),
         Arrangement.spacedBy(14.dp), Alignment.CenterVertically,
     ) { Glyph(icon, tint, 28.dp); Txt(text, 18, tint, bold = true) }
 
@@ -416,7 +418,7 @@ private fun ColorPicker(vm: LauncherHub, p: Prefs, accent: Color) {
                     Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(color)
                         .clickable { vm.set(K.accentCustom, color.toArgb()); vm.set(K.accent, ACCENTS.size); close() },
                     Alignment.Center,
-                ) { Txt(str(R.string.color_apply), 18, OnAccent, bold = true) }
+                ) { Txt(str(R.string.color_apply), 18, onAccent(color), bold = true) }
             }
         }
     }
@@ -432,7 +434,7 @@ private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
     val ctx = LocalContext.current
     val gps = remember(vm.gpsTick) { ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED }
     val st by remember(p.toolsIntervalSec) { CarTools.stats(ctx, p.toolsIntervalSec * 1000L) }.collectAsStateWithLifecycle(null)
-    val speed by remember(gps) { CarTools.speedKmh(ctx) }.collectAsStateWithLifecycle(null)
+    val speed by remember(gps) { if (gps) CarTools.speedKmh(ctx) else flowOf(null) }.collectAsStateWithLifecycle(null)
     var bright by remember { mutableFloatStateOf(CarTools.brightness(ctx) / 255f) }
 
     Dim({ vm.tools = false }) {
@@ -447,7 +449,7 @@ private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
                 val temp = st?.cpuC
                 Stat(str(R.string.stat_cpu_temp), temp?.let { "${it.roundToInt()} °C" } ?: str(R.string.stat_na), if (temp != null && temp >= p.tempWarnC) Warn else TextHi, icon = G.GAUGE)
                 Stat(str(R.string.stat_ram_free), st?.let { "${it.ramFreeMb} / ${it.ramTotalMb} MB" } ?: "…", icon = G.DATA)
-                Stat(str(R.string.stat_battery), st?.battV?.let { "%.1f V".format(it) } ?: str(R.string.stat_na), icon = G.POWER)
+                Stat(str(R.string.stat_battery), st?.battV?.let { if (it < 6f) "%.1f V (int.)".format(it) else "%.1f V".format(it) } ?: str(R.string.stat_na), icon = G.POWER)
                 if (gps) Stat(str(R.string.stat_gps_speed), speed?.let { "${it.roundToInt()} km/h" } ?: str(R.string.stat_no_fix), icon = G.NAV)
                 else Chip(str(R.string.gps_enable), false, accent, icon = G.NAV) { vm.requestLocation() }
             }

@@ -135,6 +135,7 @@ fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     val accent = Color(p.accentArgb)
     if (vm.drawer) Drawer(vm, p, apps, accent)
     if (vm.tools) ToolsPanel(vm, p, accent)
+    if (vm.radioScreen) RadioScreen(vm, accent)
     if (vm.settings) SettingsPanel(vm, p, apps, accent)
     vm.menuApp?.let { AppMenu(vm, p, it, accent) }
     vm.picker?.let { AppPicker(vm, p, apps, it, accent) }

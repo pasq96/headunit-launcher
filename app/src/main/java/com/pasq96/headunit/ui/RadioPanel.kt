@@ -77,7 +77,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             }
         }
 
-        Column(Modifier.fillMaxWidth().weight(1f).clickable { vm.radio.openStockApp() }, Arrangement.Center, Alignment.CenterHorizontally) {
+        Column(Modifier.fillMaxWidth().weight(1f).clickable { vm.radioScreen = true }, Arrangement.Center, Alignment.CenterHorizontally) {
             Txt(fmtFreq(r.freqKhz, unit = true), 52, bold = true, align = TextAlign.Center)
             Txt(r.ps ?: "", 26, accent, bold = true, align = TextAlign.Center)
             // Radio text scrolls only when wider than the panel.
@@ -115,6 +115,36 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             }
         }
         if (tune) Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
+    }
+}
+
+/** Full radio section, opened from the radio tile: same data as the tile at full size, plus the shortcut to the stock app. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun RadioScreen(vm: LauncherHub, accent: Color) {
+    val r by vm.radio.state.collectAsStateWithLifecycle()
+    val close = { vm.radioScreen = false }
+    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Chip(if (r.band == Band.AM) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
+            Box(Modifier.weight(1f)) { Txt(str(R.string.tab_radio), 24, TextHi, bold = true) }
+            Chip(str(R.string.radio_open_stock), false, accent, height = 56.dp, icon = G.RADIO) { close(); vm.radio.openStockApp() }
+            GlyphButton(G.CLOSE, TextHi, close)
+        }
+        Column(Modifier.fillMaxWidth().weight(1f), Arrangement.Center, Alignment.CenterHorizontally) {
+            Txt(fmtFreq(r.freqKhz, unit = true), 84, bold = true, align = TextAlign.Center)
+            Txt(r.ps ?: "", 32, accent, bold = true, align = TextAlign.Center)
+            BasicText(
+                r.rt ?: "", Modifier.fillMaxWidth().padding(top = 6.dp).basicMarquee(iterations = Int.MAX_VALUE),
+                TextStyle(color = TextLo, fontSize = 20.sp, textAlign = TextAlign.Center), softWrap = false, maxLines = 1,
+            )
+            if (!r.connected) Txt(str(R.string.radio_no_data), 14, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
+        }
+        PositionBar(r.freqKhz, r.band, accent)
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
+        }
     }
 }
 

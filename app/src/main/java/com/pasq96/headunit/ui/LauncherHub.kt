@@ -72,6 +72,7 @@ class LauncherHub(private val app: Application) {
 
     var drawer by mutableStateOf(false)
     var tools by mutableStateOf(false)
+    var radioScreen by mutableStateOf(false)         // full radio section opened from the radio tile
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
     var manager by mutableStateOf(false)              // drawer apps: visibility + custom order
@@ -174,7 +175,7 @@ class LauncherHub(private val app: Application) {
 
     fun hasOverlay() = drawer || tools || settings || menuApp != null || picker != null || colorPicker || manager
 
-    fun closeOverlays() { drawer = false; tools = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false }
+    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

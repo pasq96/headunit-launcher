@@ -41,9 +41,9 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > .signing/release.jks
           else
-            # No secrets: throw-away test keystore (APKs from different runs won't upgrade in place)
-            keytool -genkeypair -keystore .signing/release.jks -storepass android -keypass android -alias test -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=headunit-test" >/dev/null 2>&1
-            KEYSTORE_PASSWORD=android KEY_ALIAS=test KEY_PASSWORD=android
+            # No secrets: fixed debug keystore tracked in the repo, so every build upgrades the previous one in place
+            cp app/debug.keystore .signing/release.jks
+            KEYSTORE_PASSWORD=android KEY_ALIAS=headunit KEY_PASSWORD=android
           fi
           { echo "KEYSTORE_PATH=../.signing/release.jks"; echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"; echo "KEY_ALIAS=$KEY_ALIAS"; echo "KEY_PASSWORD=$KEY_PASSWORD"; } >> "$GITHUB_ENV"
       - name: Guard rails

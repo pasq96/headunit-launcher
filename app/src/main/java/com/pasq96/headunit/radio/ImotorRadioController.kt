@@ -19,6 +19,8 @@ data class RadioState(
 /** Commands to / state from the stock radio. Implementations must never take audio focus: the stock app owns the sound. */
 interface ImotorRadioController {
     val state: StateFlow<RadioState>
+    /** False when the radio only accepts next/previous station and band switch (no direct tuning, presets, AF/TA, mute). */
+    val canTune: Boolean get() = true
     fun start()
     fun stop()
     fun nextStation()

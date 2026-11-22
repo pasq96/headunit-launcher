@@ -65,6 +65,7 @@
     <string name="drawer_rows">Rows (0 = auto)</string>
     <string name="drawer_icon_size">Drawer icon size</string>
     <string name="drawer_labels">App names</string>
+    <string name="drawer_fill">Fill the screen (automatic grid)</string>
     <string name="auto">Auto</string>
     <string name="sec_apps">Apps</string>
     <string name="navigator">Navigator</string>
@@ -80,7 +81,7 @@
     <string name="presets_import">Import presets from the radio</string>
     <string name="radio_open_stock">Open stock radio</string>
     <string name="radio_stock">Stock radio</string>
-    <string name="radio_no_data">No data from the radio: check the actions in ImotorRadioContract.kt</string>
+    <string name="radio_no_data">Frequency unavailable: grant permissions from internal ADB and restart the app</string>
     <string name="radio_hint">Tap: recall · long-press: save or clear</string>
     <string name="sec_dock">Dock</string>
     <string name="dock_overlay">Dock always above apps (overlay, needs freeform)</string>
@@ -159,6 +160,7 @@
     <string name="grant_freeform">Freeform windows</string>
     <string name="grant_battery">Battery optimization exemption</string>
     <string name="grant_notif">Notifications</string>
+    <string name="grant_logs">Log access (radio frequency)</string>
     <string name="grant_devopts">Developer options enabled</string>
     <string name="dock_pos">Dock position</string>
     <string name="color_pick_title">Custom colour</string>

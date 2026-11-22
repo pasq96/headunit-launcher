@@ -29,6 +29,7 @@ object PermissionGranter {
             Step(R.string.grant_freeform, listOf("settings put global enable_freeform_support 1 && settings put global force_resizable_activities 1")),
             Step(R.string.grant_battery, listOf("dumpsys deviceidle whitelist +$pkg", "cmd deviceidle whitelist +$pkg")),
             Step(R.string.grant_notif, listOf("pm grant $pkg android.permission.POST_NOTIFICATIONS", "echo skip")),
+            Step(R.string.grant_logs, listOf("pm grant $pkg android.permission.READ_LOGS")),
             Step(R.string.grant_devopts, listOf("settings put global development_settings_enabled 1")),
         )
     }

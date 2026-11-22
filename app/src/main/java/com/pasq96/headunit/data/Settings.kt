@@ -42,6 +42,7 @@ data class Prefs(
     val drawerSpan: Int = 0,                // columns (vertical) / rows (horizontal), 0 = auto
     val drawerIconDp: Int = 64,
     val drawerLabels: Boolean = true,
+    val drawerFill: Boolean = true,         // auto grid sized so every app fits on screen (vertical, auto columns only)
     val drawerDev: Boolean = true,          // developer-options shortcut as first drawer cell
     val theme: ThemeMode = ThemeMode.DARK,
     val lang: Lang = Lang.IT,
@@ -98,6 +99,7 @@ object K {
     val drawerSpan = intPreferencesKey("drawer_span")
     val drawerIcon = intPreferencesKey("drawer_icon_dp")
     val drawerLabels = booleanPreferencesKey("drawer_labels")
+    val drawerFill = booleanPreferencesKey("drawer_fill")
     val drawerDev = booleanPreferencesKey("drawer_dev")
     val theme = stringPreferencesKey("theme")
     val lang = stringPreferencesKey("lang")
@@ -151,6 +153,7 @@ class SettingsStore(private val ctx: Context) {
         drawerSpan = (p[K.drawerSpan] ?: 0).coerceIn(0, 10),
         drawerIconDp = (p[K.drawerIcon] ?: 64).coerceIn(40, 112),
         drawerLabels = p[K.drawerLabels] ?: true,
+        drawerFill = p[K.drawerFill] ?: true,
         drawerDev = p[K.drawerDev] ?: true,
         theme = p[K.theme].toEnum(ThemeMode.DARK),
         lang = p[K.lang].toEnum(Lang.IT),

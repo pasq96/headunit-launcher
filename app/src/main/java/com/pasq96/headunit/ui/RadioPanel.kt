@@ -62,12 +62,15 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
     val am = r.band == Band.AM
     val step = if (am) p.amStepKhz else p.fmStepKhz
     val label = stepLabel(step)
+    val tune = vm.radio.canTune
 
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
-            Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
-            Chip("AF", r.af, accent, height = 56.dp) { vm.radio.toggleAf() }
-            Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
+            if (tune) {
+                Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
+                Chip("AF", r.af, accent, height = 56.dp) { vm.radio.toggleAf() }
+                Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
+            } else Chip(if (r.band == Band.AM) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
             Box(Modifier.weight(1f), Alignment.CenterEnd) {
                 Txt(str(R.string.radio_stock), 13, TextLo, modifier = Modifier.clickable { vm.radio.openStockApp() }.padding(12.dp))
             }
@@ -84,9 +87,12 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             if (!r.connected) Txt(str(R.string.radio_no_data), 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         }
 
-        TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) }
+        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) }
 
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
+        if (!tune) Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 40.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 40.dp) }
+        } else Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 36.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 17, bold = true) }
             RadioBtn(Modifier.weight(1f), true, accent, { vm.radio.toggleMute() }) { Glyph(if (r.muted) G.PLAY else G.PAUSE, OnAccent, 36.dp) }
@@ -94,7 +100,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 36.dp) }
         }
 
-        p.presets.chunked(4).forEachIndexed { row, slots ->
+        if (tune) p.presets.chunked(4).forEachIndexed { row, slots ->
             Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
                 slots.forEachIndexed { i, f ->
                     val slot = row * 4 + i
@@ -107,7 +113,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
                 }
             }
         }
-        Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
+        if (tune) Txt(str(R.string.radio_hint), 12, TextLo, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
     }
 }
 

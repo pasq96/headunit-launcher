@@ -1,116 +1,89 @@
 package com.pasq96.headunit.radio
 
-import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import androidx.core.content.ContextCompat
 import com.pasq96.headunit.embed.Embedder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.pasq96.headunit.radio.ImotorRadioContract as C
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
-/** Broadcast-based bridge: state is pushed by the radio (no polling), commands are plain broadcasts. */
+/**
+ * Bridge to the stock iMotor radio (com.imotor.fmam). The app publishes no state broadcasts: the tuned frequency is read
+ * from the system log line `VehicleHelperService: setRadioInfo:<n>` (needs READ_LOGS, granted over adb) and commands are
+ * the actions its RadioService accepts. Direct tuning, mute, AF/TA and presets are not exposed by the app.
+ */
 class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     private val ctx = context.applicationContext
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _state = MutableStateFlow(RadioState())
     override val state: StateFlow<RadioState> = _state.asStateFlow()
-    private var registered = false
+    override val canTune = false
+    private var job: Job? = null
+    @Volatile private var proc: Process? = null
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(c: Context, i: Intent) {
-            runCatching { when (i.action) { C.Action.STATE -> applyState(i); C.Action.PRESETS -> applyPresets(i) } }
+    override fun start() {
+        if (job?.isActive == true) return
+        job = scope.launch {
+            while (isActive) { runCatching { readLog() }; delay(5_000) }
         }
     }
 
-    override fun start() {
-        if (registered) return
-        val f = IntentFilter(C.Action.STATE).apply { addAction(C.Action.PRESETS) }
-        ContextCompat.registerReceiver(ctx, receiver, f, ContextCompat.RECEIVER_EXPORTED)
-        registered = true
-        send(C.Action.QUERY)
-    }
-
     override fun stop() {
-        if (!registered) return
-        runCatching { ctx.unregisterReceiver(receiver) }
-        registered = false
+        job?.cancel(); job = null
+        proc?.destroy(); proc = null
     }
 
-    // ---- commands ----
-
-    override fun nextStation() = send(C.Action.NEXT)
-    override fun previousStation() = send(C.Action.PREV)
-    override fun seekUp() = send(C.Action.SEEK_UP)
-    override fun seekDown() = send(C.Action.SEEK_DOWN)
-    override fun toggleBand() = send(C.Action.TOGGLE_BAND)
-    override fun toggleAf() = send(C.Action.TOGGLE_AF)
-    override fun toggleTa() = send(C.Action.TOGGLE_TA)
-
-    override fun setBand(band: Band) = send(C.Action.SET_BAND) { putExtra(C.Extra.BAND, C.encodeBand(band)) }
-
-    override fun setFrequency(khz: Int) = send(C.Action.SET_FREQ) {
-        when (val v = C.encodeFreq(khz)) { is Int -> putExtra(C.Extra.FREQ, v); is Float -> putExtra(C.Extra.FREQ, v) }
+    /** Blocks on the filtered logcat stream until the process ends (stop() destroys it). */
+    private fun readLog() {
+        val p = ProcessBuilder("logcat", "-T", "1", "-s", "$LOG_TAG:D").redirectErrorStream(true).start()
+        proc = p
+        p.inputStream.bufferedReader().useLines { lines ->
+            for (line in lines) RE.find(line)?.groupValues?.get(1)?.toIntOrNull()?.let(::apply)
+        }
     }
 
-    /** Moves by [stepKhz] inside the band limits, wrapping around the ends. */
-    override fun step(up: Boolean, stepKhz: Int) {
+    /** FM comes as tens of kHz (9540 = 95.40 MHz), AM as kHz. */
+    private fun apply(raw: Int) {
+        val fm = raw in 6_500..10_800
         val s = _state.value
-        if (s.freqKhz <= 0) return
-        val (lo, hi) = if (s.band == Band.AM) AM_RANGE else FM_RANGE
-        val n = s.freqKhz + if (up) stepKhz else -stepKhz
-        setFrequency(if (n > hi) lo else if (n < lo) hi else n)
+        _state.value = s.copy(connected = true, freqKhz = if (fm) raw * 10 else raw, band = if (!fm) Band.AM else if (s.band == Band.AM) Band.FM1 else s.band)
     }
 
-    override fun toggleMute() {
-        val target = !_state.value.muted
-        _state.value = _state.value.copy(muted = target) // optimistic: the radio confirms with the next STATE
-        send(C.Action.MUTE) { putExtra(C.Extra.MUTE, target) }
-    }
+    // ---- commands: the service has no seek/step distinction, next/previous station is the closest match ----
 
-    override fun openStockApp(): Boolean {
-        val pm = ctx.packageManager
-        val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-            .filter { it.activityInfo.packageName.startsWith(C.PACKAGE_PREFIX) }
-        val radio = apps.firstOrNull { r ->
-            val text = (r.activityInfo.packageName + " " + r.loadLabel(pm)).lowercase()
-            C.STOCK_APP_HINTS.any { it in text }
-        } ?: return false
-        return Embedder.launch(ctx, radio.activityInfo.packageName)
-    }
+    override fun nextStation() = cmd(NEXT)
+    override fun previousStation() = cmd(PREV)
+    override fun seekUp() = cmd(NEXT)
+    override fun seekDown() = cmd(PREV)
+    override fun toggleBand() = cmd(BAND)
+    override fun setBand(band: Band) { if (band != _state.value.band) cmd(BAND) }
+    override fun step(up: Boolean, stepKhz: Int) = Unit
+    override fun setFrequency(khz: Int) = Unit
+    override fun toggleMute() = Unit
+    override fun toggleAf() = Unit
+    override fun toggleTa() = Unit
 
-    // ---- state from the radio: only the extras that are present are applied ----
+    override fun openStockApp(): Boolean = Embedder.launch(ctx, PKG)
 
-    @Suppress("DEPRECATION")
-    private fun applyState(i: Intent) {
-        val e = i.extras ?: return
-        var s = _state.value.copy(connected = true)
-        if (e.containsKey(C.Extra.BAND)) C.decodeBand(e.get(C.Extra.BAND))?.let { s = s.copy(band = it) }
-        if (e.containsKey(C.Extra.FREQ)) s = s.copy(freqKhz = C.decodeFreqKhz(e.get(C.Extra.FREQ)))
-        if (e.containsKey(C.Extra.PS)) s = s.copy(ps = e.getString(C.Extra.PS)?.trim()?.ifEmpty { null })
-        if (e.containsKey(C.Extra.RT)) s = s.copy(rt = e.getString(C.Extra.RT)?.trim()?.ifEmpty { null })
-        if (e.containsKey(C.Extra.MUTE)) C.decodeBool(e.get(C.Extra.MUTE))?.let { s = s.copy(muted = it) }
-        if (e.containsKey(C.Extra.AF)) C.decodeBool(e.get(C.Extra.AF))?.let { s = s.copy(af = it) }
-        if (e.containsKey(C.Extra.TA)) C.decodeBool(e.get(C.Extra.TA))?.let { s = s.copy(ta = it) }
-        _state.value = s
-    }
-
-    @Suppress("DEPRECATION")
-    private fun applyPresets(i: Intent) {
-        val raw = i.extras?.get(C.Extra.PRESETS)
-        _state.value = _state.value.copy(stockPresets = C.decodePresets(raw))
-    }
-
-    private fun send(action: String, fill: Intent.() -> Unit = {}) {
-        val i = Intent(action)
-        C.TARGET_PACKAGE?.let { i.setPackage(it) }
-        i.fill()
-        runCatching { ctx.sendBroadcast(i) }
+    private fun cmd(action: String) {
+        runCatching { ctx.startService(Intent(action).setComponent(ComponentName(PKG, SERVICE))) }
     }
 
     private companion object {
-        val FM_RANGE = 87_500 to 108_000
-        val AM_RANGE = 522 to 1_710
+        const val PKG = "com.imotor.fmam"
+        const val SERVICE = "com.imotor.radiosupport.radio.RadioService"
+        const val LOG_TAG = "VehicleHelperService"
+        const val NEXT = "com.imotor.radio.ACITON_NEXT_STATION" // sic: the app's own spelling
+        const val PREV = "com.imotor.radio.ACTION_PREV_STATION"
+        const val BAND = "com.imotor.radio.ACTION_SWITCH_BAND"
+        val RE = Regex("setRadioInfo:(\\d+)")
     }
 }

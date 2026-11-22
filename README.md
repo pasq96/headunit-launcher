@@ -109,3 +109,5 @@ sensori, soglia temperatura, avvio automatico, ripristino al risveglio, stato de
 `system/` LED tasti e tema auto · `radio/` radio FM nativa · `tools/` temperatura, RAM, batteria, GPS, luminosità, overlay notte · `data/` DataStore e app installate.
 
 **Icona e splash**: icona adattiva a quadrante (con versione monocromatica per le icone a tema) e splash di avvio con dissolvenza, trattenuto al massimo 1,5 s finché la lista app è pronta.
+
+**Radio stock (com.imotor.fmam)**: il pannello legge la frequenza dal log di sistema (permesso READ_LOGS, concesso da ADB interno) e comanda stazione successiva/precedente e cambio banda tramite il servizio della radio. Sintonia diretta, preset, AF/TA e mute non sono esposti dall app, quindi in questa modalità sono nascosti.

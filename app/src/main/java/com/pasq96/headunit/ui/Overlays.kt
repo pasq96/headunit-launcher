@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.toArgb
@@ -23,6 +24,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -156,8 +158,7 @@ private sealed interface DrawerCell {
 @Composable
 private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
-    val size = p.drawerIconDp.dp
-    val cell: @Composable (DrawerCell) -> Unit = { c ->
+    val cell: @Composable (DrawerCell, Dp) -> Unit = { c, size ->
         val label = when (c) { DrawerCell.Tools -> str(R.string.tools_title); DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.App -> c.info.label }
         Column(
             Modifier.padding(4.dp).clip(RoundedCornerShape(14.dp))
@@ -192,8 +193,26 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
             Txt(str(R.string.drawer_title), 24, TextHi, bold = true)
             GlyphButton(G.CLOSE, TextHi, { vm.drawer = false })
         }
-        if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it) } }
-        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it) } }
+        val fixedSize = p.drawerIconDp.dp
+        if (p.drawerFill && p.drawerSpan == 0 && !p.drawerHorizontal) BoxWithConstraints(Modifier.fillMaxSize()) {
+            // pick the column count that gives the biggest icon while every cell still fits without scrolling
+            val n = entries.size; val pad2 = 24f; val labelH = if (p.drawerLabels) 44f else 0f
+            var cols = 1; var icon = 0f
+            for (c in 1..n) {
+                val r = (n + c - 1) / c
+                val s = minOf(maxWidth.value / c - pad2, maxHeight.value / r - pad2 - labelH)
+                if (s > icon) { icon = s; cols = c }
+            }
+            if (icon >= 56f) {
+                val rows = (n + cols - 1) / cols
+                val cellH = maxHeight / rows
+                LazyVerticalGrid(GridCells.Fixed(cols), Modifier.fillMaxSize(), userScrollEnabled = false) {
+                    items(entries, key = { it.key }) { Box(Modifier.fillMaxWidth().height(cellH), Alignment.Center) { cell(it, minOf(icon, 128f).dp) } }
+                }
+            } else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, fixedSize) } }
+        }
+        else if (p.drawerHorizontal) LazyHorizontalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, fixedSize) } }
+        else LazyVerticalGrid(cells, Modifier.fillMaxSize(), contentPadding = pad) { items(entries, key = { it.key }) { cell(it, fixedSize) } }
     }
 }
 
@@ -564,6 +583,7 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 ChooseRow(str(R.string.drawer_manage), str(R.string.drawer_hidden_count, p.hidden.size), accent, icon = G.EYE_OFF) { vm.manager = true }
                 ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent, icon = G.GEAR) { vm.set(K.drawerDev, it) }
                 ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent, icon = G.INFO) { vm.set(K.drawerLabels, it) }
+                ToggleRow(str(R.string.drawer_fill), p.drawerFill, accent, icon = G.GRID) { vm.set(K.drawerFill, it) }
             }
                 },
                 {

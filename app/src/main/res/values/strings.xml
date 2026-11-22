@@ -65,6 +65,7 @@
     <string name="drawer_rows">Righe (0 = auto)</string>
     <string name="drawer_icon_size">Dimensione icone drawer</string>
     <string name="drawer_labels">Nomi delle app</string>
+    <string name="drawer_fill">Icone a tutto spazio (griglia automatica)</string>
     <string name="auto">Auto</string>
     <string name="sec_apps">App</string>
     <string name="navigator">Navigatore</string>
@@ -80,7 +81,7 @@
     <string name="presets_import">Importa preset dalla radio</string>
     <string name="radio_open_stock">Apri radio stock</string>
     <string name="radio_stock">Radio stock</string>
-    <string name="radio_no_data">Nessun dato dalla radio: controlla le action in ImotorRadioContract.kt</string>
+    <string name="radio_no_data">Frequenza non disponibile: concedi i permessi da ADB interno e riavvia l\'app</string>
     <string name="radio_hint">Tocca: richiama · tieni premuto: salva o cancella</string>
     <string name="sec_dock">Dock</string>
     <string name="dock_overlay">Dock sempre sopra le app (overlay, serve freeform)</string>
@@ -159,6 +160,7 @@
     <string name="grant_freeform">Finestre libere</string>
     <string name="grant_battery">Esclusione risparmio batteria</string>
     <string name="grant_notif">Notifiche</string>
+    <string name="grant_logs">Lettura log (frequenza radio)</string>
     <string name="grant_devopts">Opzioni sviluppatore attive</string>
     <string name="dock_pos">Posizione dock</string>
     <string name="color_pick_title">Colore personalizzato</string>

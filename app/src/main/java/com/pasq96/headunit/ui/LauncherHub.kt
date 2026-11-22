@@ -204,7 +204,7 @@ class LauncherHub(private val app: Application) {
     fun steerRadio(next: Boolean) {
         val p = prefs.value
         val saved = p.presets.filter { it > 0 }
-        if (p.swcSeek || saved.isEmpty()) { if (next) radio.seekUp() else radio.seekDown(); return }
+        if (p.swcSeek || saved.isEmpty() || !radio.canTune) { if (next) radio.seekUp() else radio.seekDown(); return }
         val idx = saved.indexOf(radio.state.value.freqKhz)
         val target = if (idx < 0) (if (next) saved.first() else saved.last())
         else saved[(idx + (if (next) 1 else -1) + saved.size) % saved.size]

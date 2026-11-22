@@ -229,20 +229,20 @@ private enum class Destructive { CACHE, STOP, DATA, UNINSTALL }
 private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val removable = remember(a.pkg) { AppActions.isRemovable(ctx, a.pkg) }
+    val removable = remember(a.pkg) { AppActions.isRemovable(ctx, a.pkgName) }
     var confirm by remember { mutableStateOf<Destructive?>(null) }
     val done = str(R.string.msg_done)
     val viaSettings = str(R.string.msg_use_settings)
     val close = { vm.menuApp = null }
 
     fun run(d: Destructive) {
-        if (d == Destructive.UNINSTALL) { vm.closeOverlays(); AppActions.uninstall(ctx, a.pkg); return }
+        if (d == Destructive.UNINSTALL) { vm.closeOverlays(); AppActions.uninstall(ctx, a.pkgName); return }
         scope.launch {
             val r = withContext(Dispatchers.IO) {
                 when (d) {
-                    Destructive.CACHE -> AppActions.clearCache(ctx, a.pkg)
-                    Destructive.STOP -> AppActions.forceStop(ctx, a.pkg)
-                    else -> AppActions.clearData(ctx, a.pkg)
+                    Destructive.CACHE -> AppActions.clearCache(ctx, a.pkgName)
+                    Destructive.STOP -> AppActions.forceStop(ctx, a.pkgName)
+                    else -> AppActions.clearData(ctx, a.pkgName)
                 }
             }
             Toast.makeText(ctx, if (r == AppActions.Result.DONE) done else viaSettings, Toast.LENGTH_SHORT).show()
@@ -259,7 +259,7 @@ private fun AppMenu(vm: LauncherHub, p: Prefs, a: AppInfo, accent: Color) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Image(a.icon, null, Modifier.size(48.dp)); Txt(a.label, 22, bold = true)
             }
-            MenuBtn(str(R.string.menu_info), TextHi, G.INFO) { vm.closeOverlays(); AppActions.info(ctx, a.pkg) }
+            MenuBtn(str(R.string.menu_info), TextHi, G.INFO) { vm.closeOverlays(); AppActions.info(ctx, a.pkgName) }
             MenuBtn(str(if (a.pkg in p.pinned) R.string.menu_unpin else R.string.menu_pin), accent, G.PIN) { vm.togglePin(a.pkg); close() }
             MenuBtn(str(R.string.menu_hide), TextHi, G.EYE_OFF) { vm.toggleHidden(a.pkg); close() }
             MenuBtn(str(R.string.menu_move), TextHi, G.SWAP) { vm.enableCustomOrder(); vm.manager = true; close() }

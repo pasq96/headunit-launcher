@@ -2,6 +2,7 @@ package com.pasq96.headunit.embed
 
 import android.app.Activity
 import android.app.ActivityOptions
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Rect
@@ -25,7 +26,8 @@ object Embedder {
 
     /** Starts [pkg]; with [bounds] (screen px) it is placed in that window when the device allows it. */
     fun launch(ctx: Context, pkg: String, bounds: Rect? = null): Boolean {
-        val intent = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: return false
+        val intent = (if ('/' in pkg) ComponentName.unflattenFromString(pkg)?.let { Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER).setComponent(it) }
+            else ctx.packageManager.getLaunchIntentForPackage(pkg)) ?: return false
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         val opts = ActivityOptions.makeBasic()
         if (bounds != null) {

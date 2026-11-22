@@ -1,5 +1,6 @@
 package com.pasq96.headunit.data
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,7 +12,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** [nav]: handles geo:/google.navigation: or declares the maps category; [music]: media browser / button receiver / music category. */
-class AppInfo(val pkg: String, val label: String, val icon: ImageBitmap, val nav: Boolean = false, val music: Boolean = false)
+/** [pkg] is the package name, or "package/Activity" for the extra launcher entries of a package that has several. */
+class AppInfo(val pkg: String, val label: String, val icon: ImageBitmap, val nav: Boolean = false, val music: Boolean = false) {
+    val pkgName get() = pkg.substringBefore('/')
+}
 
 object AppRepo {
     private const val ICON_PX = 128
@@ -28,10 +32,15 @@ object AppRepo {
         val query = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         pm.queryIntentActivities(query, 0)
             .filter { it.activityInfo.packageName != ctx.packageName }
-            .distinctBy { it.activityInfo.packageName }
-            .map {
-                val pkg = it.activityInfo.packageName
-                AppInfo(pkg, it.loadLabel(pm).toString(), it.loadIcon(pm).toBitmap(ICON_PX, ICON_PX).asImageBitmap(), pkg in navPkgs, pkg in musicPkgs)
+            .distinctBy { ComponentName(it.activityInfo.packageName, it.activityInfo.name) }
+            .let { all ->
+                val seen = HashSet<String>()
+                all.map {
+                    val pkg = it.activityInfo.packageName
+                    // first entry keeps the plain package key (saved prefs stay valid), further ones are keyed by activity
+                    val key = if (seen.add(pkg)) pkg else ComponentName(pkg, it.activityInfo.name).flattenToString()
+                    AppInfo(key, it.loadLabel(pm).toString(), it.loadIcon(pm).toBitmap(ICON_PX, ICON_PX).asImageBitmap(), pkg in navPkgs, pkg in musicPkgs)
+                }
             }
             .sortedBy { it.label.lowercase() }
     }

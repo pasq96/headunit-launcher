@@ -12,9 +12,13 @@ data class RadioState(
     val ps: String? = null,             // RDS programme service name
     val rt: String? = null,             // RDS radio text
     val muted: Boolean = false,
+    val stereo: Boolean = false,
     val af: Boolean = false,
     val ta: Boolean = false,
     val stockPresets: List<Int> = emptyList(), // kHz, as reported by the radio's own memory
+    val loc: Boolean = false,           // local (reduced sensitivity) mode
+    val stereoOn: Boolean = true,       // stereo decoding enabled (false = forced mono)
+    val scanning: Boolean = false,      // auto-scan in progress
 )
 
 /** Commands to / state from the stock radio. Implementations must never take audio focus: the stock app owns the sound. */
@@ -35,6 +39,10 @@ interface ImotorRadioController {
     fun toggleMute()
     fun toggleAf()
     fun toggleTa()
+    fun toggleStereo()
+    fun toggleLoc()
+    fun autoScan()
+    fun stopSeek()
     /** Opens the original radio app; false when none is installed. */
     fun openStockApp(): Boolean
 }

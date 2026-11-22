@@ -96,7 +96,7 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
         } else Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 36.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 17, bold = true) }
-            RadioBtn(Modifier.weight(1f), true, accent, { vm.radio.toggleMute() }) { Glyph(if (r.muted) G.PLAY else G.PAUSE, OnAccent, 36.dp) }
+            RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 17, if (r.scanning) OnAccent else TextHi, bold = true) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 17, bold = true) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 36.dp) }
         }
@@ -123,11 +123,23 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
 @Composable
 internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     val r by vm.radio.state.collectAsStateWithLifecycle()
+    val p by vm.prefs.collectAsStateWithLifecycle()
+    val tune = vm.radio.canTune
+    val am = r.band == Band.AM
+    val step = if (am) p.amStepKhz else p.fmStepKhz
+    val label = stepLabel(step)
     val close = { vm.radioScreen = false }
-    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(16.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
-            Chip(if (r.band == Band.AM) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
-            Box(Modifier.weight(1f)) { Txt(str(R.string.tab_radio), 24, TextHi, bold = true) }
+    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(14.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+            if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
+            else Chip(if (am) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
+            Chip("ST", r.stereoOn, accent, height = 56.dp) { vm.radio.toggleStereo() }
+            if (tune) {
+                Chip("LOC", r.loc, accent, height = 56.dp) { vm.radio.toggleLoc() }
+                Chip("AF", r.af, accent, height = 56.dp) { vm.radio.toggleAf() }
+                Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
+            }
+            Box(Modifier.weight(1f))
             Chip(str(R.string.radio_open_stock), false, accent, height = 56.dp, icon = G.RADIO) { close(); vm.radio.openStockApp() }
             GlyphButton(G.CLOSE, TextHi, close)
         }
@@ -140,22 +152,45 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             )
             if (!r.connected) Txt(str(R.string.radio_no_data), 14, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
         }
-        PositionBar(r.freqKhz, r.band, accent)
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
+        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
+        if (tune && r.stockPresets.isNotEmpty()) Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
+            r.stockPresets.take(8).forEach { f ->
+                val on = f == r.freqKhz
+                Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2).clickable { vm.radio.setFrequency(f) }, Alignment.Center) {
+                    Txt(fmtFreq(f, unit = false), 18, if (on) OnAccent else TextHi, bold = true)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
+            if (tune) {
+                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 20, bold = true) }
+                RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) OnAccent else TextHi, bold = true) }
+                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 20, bold = true) }
+            }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
     }
 }
 
-/** Read-only position of the tuned frequency inside the band. */
+/** Read-only ruler like the stock one: a tick per step across the band, the needle on the tuned frequency. */
 @Composable
 private fun PositionBar(freqKhz: Int, band: Band, accent: Color) {
-    val (lo, hi) = if (band == Band.AM) 522 to 1710 else 87_500 to 108_000
+    val am = band == Band.AM
+    val (lo, hi) = if (am) 522 to 1710 else 87_500 to 108_000
+    val step = if (am) 9 else 100
     val f = ((freqKhz - lo).toFloat() / (hi - lo)).coerceIn(0f, 1f)
+    val minor = TextLo; val major = TextHi
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Surface2)) {
-            Box(Modifier.fillMaxWidth(f).fillMaxHeight().background(accent))
+        Canvas(Modifier.fillMaxWidth().height(48.dp)) {
+            val n = (hi - lo) / step
+            for (i in 0..n) {
+                val x = size.width * i / n
+                val big = i % 10 == 0
+                drawLine(if (big) major else minor, Offset(x, size.height * (if (big) 0.1f else 0.4f)), Offset(x, size.height * 0.9f), if (big) 3f else 2f)
+            }
+            val nx = size.width * f
+            drawLine(accent, Offset(nx, 0f), Offset(nx, size.height), 8f)
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), Arrangement.SpaceBetween) {
             Txt(fmtFreq(lo, unit = false), 12, TextLo); Txt(fmtFreq(hi, unit = false), 12, TextLo)

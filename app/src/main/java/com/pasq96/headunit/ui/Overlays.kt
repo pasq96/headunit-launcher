@@ -121,8 +121,8 @@ private fun EmergencyBar(vm: LauncherHub) {
 
 @Composable
 private fun EmergencyButton(text: String, icon: G, modifier: Modifier, onClick: () -> Unit) =
-    Row(modifier.height(64.dp).clip(RoundedCornerShape(14.dp)).background(Danger).clickable(onClick = onClick).padding(horizontal = 12.dp), Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
-        Glyph(icon, Color.White, 28.dp); Txt(text, 17, Color.White, bold = true, align = TextAlign.Center, maxLines = 2)
+    Row(modifier.height(56.dp).clip(RoundedCornerShape(14.dp)).background(Danger.copy(alpha = 0.18f)).clickable(onClick = onClick).padding(horizontal = 12.dp), Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
+        Glyph(icon, Danger, 26.dp); Txt(text, 16, Danger, bold = true, align = TextAlign.Center, maxLines = 2)
     }
 
 // ---- layer ----
@@ -606,6 +606,7 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 },
                 {
             Section(str(R.string.sec_radio), accent, G.RADIO) {
+                if (vm.radio.canTune) {
                 ToggleRow(str(R.string.swc_seek), p.swcSeek, accent, icon = G.SEEK_UP) { vm.set(K.swcSeek, it) }
                 Labeled(str(R.string.fm_step), G.RADIO, TextLo, 15)
                 ChipRow {
@@ -617,6 +618,9 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 }
                 ChipRow(Modifier.padding(top = 8.dp)) {
                     Chip(str(R.string.presets_import), false, accent, icon = G.DATA) { vm.importStockPresets() }
+                    Chip(str(R.string.radio_open_stock), false, accent, icon = G.RADIO) { vm.closeOverlays(); vm.radio.openStockApp() }
+                }
+                } else ChipRow {
                     Chip(str(R.string.radio_open_stock), false, accent, icon = G.RADIO) { vm.closeOverlays(); vm.radio.openStockApp() }
                 }
             }

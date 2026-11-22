@@ -113,3 +113,5 @@ sensori, soglia temperatura, avvio automatico, ripristino al risveglio, stato de
 **Radio stock (com.imotor.fmam)**: il pannello legge la frequenza dal log di sistema (permesso READ_LOGS, concesso da ADB interno) e comanda stazione successiva/precedente e cambio banda tramite il servizio della radio. Sintonia diretta, preset, AF/TA e mute non sono esposti dall app, quindi in questa modalità sono nascosti.
 
 **Anteprime**: nei riquadri navigazione/player compare l ultima schermata dell app (catturata ogni ~10 s solo mentre l app e in primo piano, via ADB interno); un tocco apre l app a schermo intero. Le finestre freeform incorporate sono un opzione sperimentale, disattivata di default. Il pannello musica e scorrevole: musica (sessione multimediale attiva) e radio.
+
+**Finestre incorporate (freeform)**: con l opzione attiva la mappa gira nel riquadro come finestra libera; una finestra trasparente del launcher la copre, nasconde la barra del titolo e trasforma il riquadro in anteprima (un tocco apre l app a schermo intero). Serve il permesso di sovrapposizione.

@@ -22,6 +22,7 @@ import com.pasq96.headunit.system.Previews
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.update
 import com.pasq96.headunit.data.AppInfo
+import com.pasq96.headunit.embed.Embedder
 import com.pasq96.headunit.data.AppRepo
 import com.pasq96.headunit.data.AppSort
 import com.pasq96.headunit.data.orderedApps
@@ -104,8 +105,9 @@ class LauncherHub(private val app: Application) {
     }
 
     // Last measured panel windows (screen px), used to open an app straight into its panel.
-    var navRect: Rect? = null
-    var mediaRect: Rect? = null
+    var navRect by mutableStateOf<Rect?>(null)
+    var mediaRect by mutableStateOf<Rect?>(null)
+    var homeVisible by mutableStateOf(false)       // launcher activity on screen
 
     suspend fun loadedPrefs(): Prefs = store.prefs.first()
 
@@ -173,7 +175,7 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || settings || menuApp != null || picker != null || colorPicker || manager
+    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager
 
     fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false }
 
@@ -189,6 +191,18 @@ class LauncherHub(private val app: Application) {
     fun requestLocation() {
         closeOverlays()
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(MainActivity.EXTRA_REQUEST_LOCATION, true))
+    }
+
+    class Shield(val slot: Int, val pkg: String, val rect: Rect)
+
+    /** Panels whose hosted app window must be covered by a touch shield (the panel is a preview: a tap opens the app full screen). */
+    fun shields(): List<Shield> {
+        val p = prefs.value
+        if (!p.embedWindows || !Embedder.freeformEnabled(app) || !homeVisible || hasOverlay()) return emptyList()
+        return buildList {
+            if (p.panels != Panels.MEDIA) p.navPkg?.let { pkg -> navRect?.let { add(Shield(0, pkg, it)) } }
+            if (p.panels != Panels.NAV && p.mediaMode == MediaMode.EMBED) p.mediaPkg?.let { pkg -> mediaRect?.let { add(Shield(1, pkg, it)) } }
+        }
     }
 
     /** Window an app should open into: its panel when it is the navigator / embedded player, else null (full screen). */

@@ -86,12 +86,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        vm.homeVisible = true
+        vm.restoreTick++ // coming back from another app: put hosted windows back in their panels
         vm.media.start()
         vm.radio.start()
         OverlayService.sync(this) // permissions may have changed while the user was in system settings
     }
 
     override fun onStop() {
+        vm.homeVisible = false
         vm.media.stop()
         vm.radio.stop()
         super.onStop()

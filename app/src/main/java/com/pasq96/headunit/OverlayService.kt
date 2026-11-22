@@ -31,6 +31,7 @@ import com.pasq96.headunit.data.DockPos
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.embed.Embedder
 import com.pasq96.headunit.ui.DockLayer
+import com.pasq96.headunit.ui.ShieldTile
 import com.pasq96.headunit.ui.OverlayLayer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +52,7 @@ class OverlayService : Service() {
     private val hub get() = (application as HeadUnitApp).hub
     private var dockView: ComposeView? = null
     private var panelView: ComposeView? = null
+    private val shieldViews = HashMap<Int, Pair<ComposeView, String>>()
 
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -65,11 +67,14 @@ class OverlayService : Service() {
         startForeground(NOTIFICATION_ID, notification())
         scope.launch { hub.prefs.collect { updateDock(it) } }
         scope.launch { snapshotFlow { hub.hasOverlay() }.collect { updatePanels(it) } }
+        scope.launch { hub.prefs.collect { updateShields() } }
+        scope.launch { snapshotFlow { Triple(hub.homeVisible, hub.hasOverlay(), hub.navRect to hub.mediaRect) }.collect { updateShields() } }
     }
 
     override fun onDestroy() {
         dockView?.let { runCatching { wm.removeView(it) } }
         panelView?.let { runCatching { wm.removeView(it) } }
+        shieldViews.values.forEach { runCatching { wm.removeView(it.first) } }; shieldViews.clear()
         dockView = null; panelView = null
         hub.dockInOverlay = false; hub.overlayInWindow = false
         scope.cancel()
@@ -106,6 +111,25 @@ class OverlayService : Service() {
             panelView = null
         }
         hub.overlayInWindow = true // while the service runs, panels always belong to it (even when closed)
+    }
+
+    /** One transparent window per hosted panel app, above the freeform window: hides its title bar and swallows touches. */
+    private fun updateShields() {
+        val want = hub.shields().associateBy { it.slot }
+        shieldViews.keys.toList().forEach { slot ->
+            val cur = shieldViews[slot] ?: return@forEach
+            if (want[slot]?.pkg != cur.second) { runCatching { wm.removeView(cur.first) }; shieldViews.remove(slot) }
+        }
+        want.values.forEach { s ->
+            val lp = params(s.rect.width(), s.rect.height(), Gravity.TOP or Gravity.START).also {
+                it.x = s.rect.left; it.y = s.rect.top; it.flags = it.flags or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            }
+            val cur = shieldViews[s.slot]
+            if (cur == null) {
+                val nv = composeView { ShieldTile(hub, s.pkg) }
+                if (runCatching { wm.addView(nv, lp) }.isSuccess) shieldViews[s.slot] = nv to s.pkg
+            } else runCatching { wm.updateViewLayout(cur.first, lp) }
+        }
     }
 
     private fun params(w: Int, h: Int, gravity: Int) = WindowManager.LayoutParams(

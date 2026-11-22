@@ -14,6 +14,7 @@ import android.provider.Settings
  *  3. otherwise plain full-screen launch.
  */
 object Embedder {
+    private const val WINDOWING_MODE_FULLSCREEN = 1
     private const val WINDOWING_MODE_FREEFORM = 5
 
     fun freeformEnabled(ctx: Context): Boolean = 
@@ -36,6 +37,8 @@ object Embedder {
                 opts.setLaunchBounds(bounds)
             }
         }
+        // without bounds the app must leave its panel window: a task already in freeform would otherwise stay there
+        if (bounds == null && freeformEnabled(ctx)) setWindowingMode(opts, WINDOWING_MODE_FULLSCREEN)
         return runCatching { ctx.startActivity(intent, opts.toBundle()) }.isSuccess
     }
 

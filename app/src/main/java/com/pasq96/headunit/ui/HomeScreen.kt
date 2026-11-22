@@ -195,6 +195,19 @@ private fun AppPanel(title: String, kind: PickerKind, pkg: String?, vm: Launcher
     }
 }
 
+/** Overlay over a hosted app window: covers the system title bar with the panel's own header and turns the panel into a preview. */
+@Composable
+internal fun ShieldTile(hub: LauncherHub, pkg: String) = HeadUnitTheme(hub) {
+    val ctx = LocalContext.current
+    val apps by hub.apps.collectAsStateWithLifecycle()
+    val label = apps.firstOrNull { it.pkg == pkg }?.label ?: pkg
+    Column(Modifier.fillMaxSize().clickable { Embedder.launch(ctx, pkg, null) }) {
+        Box(Modifier.fillMaxWidth().height(36.dp).background(Surface).padding(horizontal = 16.dp), Alignment.CenterStart) {
+            Txt(label, 15, TextHi, bold = true)
+        }
+    }
+}
+
 // ---- native media widget ----
 
 /** Swipeable sources: music (any active media session) and radio; follows the radio while it is the active source. */

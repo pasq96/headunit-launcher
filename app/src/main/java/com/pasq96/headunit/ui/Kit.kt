@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,8 +33,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -61,7 +65,7 @@ fun Txt(
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
 enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN,
-    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN }
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -75,11 +79,23 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             drawLine(c, Offset(w * 0.5f, h * 0.6f), Offset(w * 0.72f, h * 0.38f), sw, StrokeCap.Round)
         }
         G.GEAR -> {
-            drawCircle(c, w * 0.2f, style = Stroke(sw))
-            for (k in 0 until 8) {
-                val a = Math.toRadians(k * 45.0); val ca = cos(a).toFloat(); val sa = sin(a).toFloat()
-                drawLine(c, Offset(w / 2 + ca * w * 0.3f, h / 2 + sa * h * 0.3f), Offset(w / 2 + ca * w * 0.42f, h / 2 + sa * h * 0.42f), sw * 1.2f, StrokeCap.Round)
+            // solid cog: 8 trapezoid teeth around a body, centre hole cut with even-odd fill
+            val path = Path().apply {
+                fillType = PathFillType.EvenOdd
+                for (k in 0 until 8) for ((da, r) in listOf(-17.0 to 0.34, -10.0 to 0.46, 10.0 to 0.46, 17.0 to 0.34)) {
+                    val a = Math.toRadians(k * 45.0 + da)
+                    val x = w / 2 + cos(a).toFloat() * w * r.toFloat(); val y = h / 2 + sin(a).toFloat() * h * r.toFloat()
+                    if (k == 0 && da == -17.0) moveTo(x, y) else lineTo(x, y)
+                }
+                close()
+                addOval(Rect(Offset(w / 2, h / 2), w * 0.14f))
             }
+            drawPath(path, c)
+        }
+        G.DEV -> {
+            drawPath(Path().apply { moveTo(w * 0.34f, h * 0.26f); lineTo(w * 0.1f, h * 0.5f); lineTo(w * 0.34f, h * 0.74f) }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(Path().apply { moveTo(w * 0.66f, h * 0.26f); lineTo(w * 0.9f, h * 0.5f); lineTo(w * 0.66f, h * 0.74f) }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawLine(c, Offset(w * 0.56f, h * 0.2f), Offset(w * 0.44f, h * 0.8f), sw, StrokeCap.Round)
         }
         G.SPLIT, G.SOLO_L, G.SOLO_R -> {
             val r = CornerRadius(w * 0.06f)
@@ -166,27 +182,27 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
     }
 }
 
-/** Label with an optional leading glyph, tinted like the text. */
 @Composable
-fun Labeled(label: String, icon: G?, color: Color, size: Int = 17, bold: Boolean = false, glyph: Dp = 26.dp, modifier: Modifier = Modifier) =
-    Row(modifier, Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+fun Labeled(label: String, icon: G?, color: Color, size: Int = 17, bold: Boolean = false, glyph: Dp = 24.dp, modifier: Modifier = Modifier) =
+    Row(modifier, Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
         if (icon != null) Glyph(icon, color, glyph)
-        Txt(label, size, color, bold)
+        Txt(label, size, color, bold, Modifier.weight(1f, fill = false))
     }
 
-// ---- controls (touch-sized: 48dp+ targets) ----
+@Composable
+fun SubLabel(text: String) = Txt(text, 13, TextLo, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
 
 @Composable
 fun GlyphButton(g: G, tint: Color, onClick: () -> Unit, size: Dp = 56.dp, glyph: Dp = 32.dp) =
     Box(Modifier.size(size).clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick), Alignment.Center) { Glyph(g, tint, glyph) }
 
 @Composable
-fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 48.dp, icon: G? = null, onClick: () -> Unit) =
+fun Chip(label: String, selected: Boolean, accent: Color, height: Dp = 44.dp, icon: G? = null, onClick: () -> Unit) =
     Box(
         Modifier.height(height).clip(RoundedCornerShape(24.dp)).background(if (selected) accent else Surface2)
-            .clickable(onClick = onClick).padding(horizontal = 20.dp),
+            .clickable(onClick = onClick).padding(horizontal = 18.dp),
         Alignment.Center,
-    ) { Labeled(label, icon, if (selected) OnAccent else TextHi, 16, selected, 22.dp) }
+    ) { Labeled(label, icon, if (selected) OnAccent else TextHi, 15, selected, 20.dp) }
 
 @Composable
 fun Swatch(color: Color, selected: Boolean, onClick: () -> Unit) =
@@ -206,29 +222,30 @@ fun RainbowSwatch(selected: Boolean, custom: Color, onClick: () -> Unit) =
     }
 
 @Composable
-fun ToggleRow(label: String, checked: Boolean, accent: Color, icon: G? = null, onChange: (Boolean) -> Unit) =
-    Row(Modifier.fillMaxWidth().height(56.dp).clickable { onChange(!checked) }, Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Labeled(label, icon, TextHi, 17)
+fun ToggleRow(label: String, checked: Boolean, accent: Color, icon: G? = null, hint: String? = null, onChange: (Boolean) -> Unit) =
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onChange(!checked) }.padding(vertical = 6.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(end = 16.dp)) {
+            Labeled(label, icon, TextHi, 16)
+            if (hint != null) Txt(hint, 12, TextLo, modifier = Modifier.padding(top = 2.dp), maxLines = 2)
+        }
         Box(
-            Modifier.width(56.dp).height(30.dp).clip(RoundedCornerShape(15.dp)).background(if (checked) accent else Surface2).padding(3.dp),
+            Modifier.width(52.dp).height(28.dp).clip(RoundedCornerShape(14.dp)).background(if (checked) accent else Surface2).padding(3.dp),
             if (checked) Alignment.CenterEnd else Alignment.CenterStart,
-        ) { Box(Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).background(TextHi)) }
+        ) { Box(Modifier.size(22.dp).clip(RoundedCornerShape(11.dp)).background(TextHi)) }
     }
 
 @Composable
 fun StepRow(label: String, value: String, accent: Color, onMinus: () -> Unit, onPlus: () -> Unit, icon: G? = null) =
     Row(Modifier.fillMaxWidth().height(56.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Labeled(label, icon, TextHi, 17)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            StepBtn("−", onMinus)
-            Txt(value, 18, accent, bold = true, modifier = Modifier.width(88.dp), align = TextAlign.Center)
-            StepBtn("+", onPlus)
-        }
+        Labeled(label, icon, TextHi, 16, modifier = Modifier.weight(1f).padding(end = 12.dp))
+        StepBtn("−", onMinus)
+        Txt(value, 17, accent, bold = true, modifier = Modifier.width(76.dp), align = TextAlign.Center)
+        StepBtn("+", onPlus)
     }
 
 @Composable
 private fun StepBtn(s: String, onClick: () -> Unit) =
-    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = onClick), Alignment.Center) { Txt(s, 24, bold = true) }
+    Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = onClick), Alignment.Center) { Txt(s, 22, bold = true) }
 
 @Composable
 fun SimpleSlider(value: Float, accent: Color, onChange: (Float) -> Unit, onDone: () -> Unit = {}) {
@@ -253,11 +270,12 @@ fun SimpleSlider(value: Float, accent: Color, onChange: (Float) -> Unit, onDone:
 }
 
 @Composable
-fun Section(title: String, accent: Color, icon: G? = null, content: @Composable () -> Unit) = Column(Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-    Labeled(title.uppercase(), icon, accent, 13, true, 20.dp)
-    Spacer(Modifier.height(6.dp))
-    content()
-}
+fun Section(title: String, accent: Color, icon: G? = null, content: @Composable () -> Unit) =
+    Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).clip(RoundedCornerShape(16.dp)).background(Surface2.copy(alpha = 0.4f)).padding(16.dp)) {
+        Labeled(title.uppercase(), icon, accent, 13, true, 18.dp)
+        Spacer(Modifier.height(4.dp))
+        content()
+    }
 
 /** tap + long-press helper (combinedClickable kept in one place). */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)

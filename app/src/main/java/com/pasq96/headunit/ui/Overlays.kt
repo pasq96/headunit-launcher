@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
@@ -109,11 +110,10 @@ private fun openOverlayAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_MANA
 private fun openWriteSettings(ctx: Context) { ctx.go(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }
 private fun openUsageAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
 
-/** Safe mode: two taps from the launcher to Android settings / the default-home picker. Always visible, top of every panel. */
 @Composable
-private fun EmergencyBar(vm: LauncherHub) {
+private fun EmergencyBar(vm: LauncherHub, modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), Arrangement.spacedBy(12.dp)) {
+    Row(modifier, Arrangement.spacedBy(8.dp)) {
         EmergencyButton(str(R.string.emg_android_settings), G.GEAR, Modifier.weight(1f)) { vm.closeOverlays(); openAndroidSettings(ctx) }
         EmergencyButton(str(R.string.emg_default_apps), G.GRID, Modifier.weight(1f)) { vm.closeOverlays(); openDefaultApps(ctx) }
     }
@@ -121,8 +121,8 @@ private fun EmergencyBar(vm: LauncherHub) {
 
 @Composable
 private fun EmergencyButton(text: String, icon: G, modifier: Modifier, onClick: () -> Unit) =
-    Row(modifier.height(56.dp).clip(RoundedCornerShape(14.dp)).background(Danger.copy(alpha = 0.18f)).clickable(onClick = onClick).padding(horizontal = 12.dp), Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
-        Glyph(icon, Danger, 26.dp); Txt(text, 16, Danger, bold = true, align = TextAlign.Center, maxLines = 2)
+    Row(modifier.height(44.dp).clip(RoundedCornerShape(12.dp)).background(Surface2).clickable(onClick = onClick).padding(horizontal = 10.dp), Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), Alignment.CenterVertically) {
+        Glyph(icon, TextLo, 22.dp); Txt(text, 14, TextHi)
     }
 
 // ---- layer ----
@@ -179,7 +179,7 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
         ) {
             if (c is DrawerCell.App) Image(c.info.icon, c.info.label, Modifier.size(size))
             else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) {
-                Glyph(if (c == DrawerCell.Tools) G.GAUGE else G.GEAR, accent, size * 0.6f)
+                Glyph(if (c == DrawerCell.Tools) G.GAUGE else G.DEV, accent, size * 0.6f)
             }
             if (p.drawerLabels) Txt(label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(size + 24.dp).padding(top = 4.dp))
         }
@@ -466,9 +466,9 @@ private fun ChipRow(modifier: Modifier = Modifier, content: @Composable () -> Un
 
 @Composable
 private fun ThemeChips(vm: LauncherHub, p: Prefs, accent: Color) = ChipRow {
-    Chip(str(R.string.theme_dark), p.theme == ThemeMode.DARK, accent, icon = G.THEME) { vm.setEnum(K.theme, ThemeMode.DARK) }
-    Chip(str(R.string.theme_light), p.theme == ThemeMode.LIGHT, accent, icon = G.SUN) { vm.setEnum(K.theme, ThemeMode.LIGHT) }
-    Chip(str(R.string.theme_auto), p.theme == ThemeMode.AUTO, accent, icon = G.LED) { vm.setEnum(K.theme, ThemeMode.AUTO) }
+    Chip(str(R.string.theme_dark), p.theme == ThemeMode.DARK, accent) { vm.setEnum(K.theme, ThemeMode.DARK) }
+    Chip(str(R.string.theme_light), p.theme == ThemeMode.LIGHT, accent) { vm.setEnum(K.theme, ThemeMode.LIGHT) }
+    Chip(str(R.string.theme_auto), p.theme == ThemeMode.AUTO, accent) { vm.setEnum(K.theme, ThemeMode.AUTO) }
 }
 
 @Composable
@@ -480,9 +480,7 @@ private fun DimChips(vm: LauncherHub, p: Prefs, accent: Color) = ChipRow {
 
 @Composable
 private fun Stat(label: String, value: String, color: Color = TextHi, icon: G? = null) =
-    Row(Modifier.fillMaxWidth().height(44.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) { Labeled(label, icon, TextLo, 17); Txt(value, 20, color, bold = true) }
-
-// ---- settings ----
+    Row(Modifier.fillMaxWidth().height(44.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) { Labeled(label, icon, TextLo, 15, modifier = Modifier.weight(1f)); Txt(value, 16, color, bold = true) }
 
 @Composable
 private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
@@ -504,21 +502,22 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
             Modifier.align(Alignment.Center).fillMaxWidth(0.92f).fillMaxHeight(0.94f).clip(RoundedCornerShape(20.dp)).background(Surface)
                 .pointerInput(Unit) { detectTapGestures { } }.verticalScroll(rememberScrollState()).padding(24.dp),
         ) {
-            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Txt(str(R.string.settings_title), 26, bold = true); GlyphButton(G.CLOSE, TextHi, { vm.settings = false })
+            Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+                Txt(str(R.string.settings_title), 26, bold = true, modifier = Modifier.weight(1f))
+                EmergencyBar(vm, Modifier.weight(2.4f))
+                GlyphButton(G.CLOSE, TextHi, { vm.settings = false })
             }
-            EmergencyBar(vm)
 
             val blocks: List<@Composable () -> Unit> = listOf(
                 {
             Section(str(R.string.sec_look), accent, G.THEME) {
-                Labeled(str(R.string.theme_label), G.THEME, TextLo, 15); ThemeChips(vm, p, accent)
-                Labeled(str(R.string.lang_label), G.GLOBE, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                SubLabel(str(R.string.theme_label)); ThemeChips(vm, p, accent)
+                SubLabel(str(R.string.lang_label))
                 ChipRow {
-                    Chip(str(R.string.lang_it), p.lang == Lang.IT, accent, icon = G.GLOBE) { vm.setEnum(K.lang, Lang.IT) }
-                    Chip(str(R.string.lang_en), p.lang == Lang.EN, accent, icon = G.GLOBE) { vm.setEnum(K.lang, Lang.EN) }
+                    Chip(str(R.string.lang_it), p.lang == Lang.IT, accent) { vm.setEnum(K.lang, Lang.IT) }
+                    Chip(str(R.string.lang_en), p.lang == Lang.EN, accent) { vm.setEnum(K.lang, Lang.EN) }
                 }
-                Labeled(str(R.string.accent_label), G.THEME, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                SubLabel(str(R.string.accent_label))
                 ChipRow {
                     ACCENTS.forEachIndexed { i, c -> Swatch(Color(c), p.accent == i) { vm.set(K.accent, i) } }
                     RainbowSwatch(p.accent == ACCENTS.size, Color(p.accentCustom)) { vm.colorPicker = true }
@@ -527,21 +526,20 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 },
                 {
             Section(str(R.string.sec_led), accent, G.LED) {
-                Labeled(str(R.string.led_source), G.LED, TextLo, 15)
+                SubLabel(str(R.string.led_source))
                 ChipRow {
                     Chip(str(R.string.src_all), p.ledSource == LedSource.AUTO, accent) { vm.setEnum(K.ledSource, LedSource.AUTO) }
                     Chip(str(R.string.src_broadcast), p.ledSource == LedSource.BROADCAST, accent) { vm.setEnum(K.ledSource, LedSource.BROADCAST) }
                     Chip(str(R.string.src_setting), p.ledSource == LedSource.SETTING, accent) { vm.setEnum(K.ledSource, LedSource.SETTING) }
                     Chip(str(R.string.src_sysfs), p.ledSource == LedSource.SYSFS, accent) { vm.setEnum(K.ledSource, LedSource.SYSFS) }
                 }
-                ToggleRow(str(R.string.led_invert), p.ledInvert, accent, icon = G.SWAP) { vm.set(K.ledInvert, it) }
+                ToggleRow(str(R.string.led_invert), p.ledInvert, accent, hint = str(R.string.led_invert_hint)) { vm.set(K.ledInvert, it) }
                 Stat(
                     str(R.string.led_state),
                     str(when (reading.on) { true -> R.string.led_on; false -> R.string.led_off; null -> R.string.led_unknown }) + (reading.source?.let { " · $it" } ?: ""),
-                    icon = G.LED,
                 )
                 Txt(str(R.string.led_hint), 13, TextLo, maxLines = 2)
-                Labeled(str(R.string.dim_mode), G.SUN, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                SubLabel(str(R.string.dim_mode))
                 DimChips(vm, p, accent)
                 Txt(str(R.string.dim_strength, (p.nightAlpha * 100).roundToInt()), 15, TextLo)
                 var alpha by remember(p.nightAlpha) { mutableFloatStateOf((p.nightAlpha - 0.1f) / 0.75f) }
@@ -550,25 +548,25 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 },
                 {
             Section(str(R.string.sec_layout), accent, G.SPLIT) {
-                Labeled(str(R.string.sec_panels), G.SPLIT, TextLo, 15)
+                SubLabel(str(R.string.sec_panels))
                 ChipRow {
-                    Chip(str(R.string.panels_split), p.panels == Panels.BOTH, accent, icon = G.SPLIT) { vm.setEnum(K.panels, Panels.BOTH) }
-                    Chip(str(R.string.panels_nav_only), p.panels == Panels.NAV, accent, icon = G.SOLO_L) { vm.setEnum(K.panels, Panels.NAV) }
-                    Chip(str(R.string.panels_player_only), p.panels == Panels.MEDIA, accent, icon = G.SOLO_R) { vm.setEnum(K.panels, Panels.MEDIA) }
+                    Chip(str(R.string.panels_split), p.panels == Panels.BOTH, accent) { vm.setEnum(K.panels, Panels.BOTH) }
+                    Chip(str(R.string.panels_nav_only), p.panels == Panels.NAV, accent) { vm.setEnum(K.panels, Panels.NAV) }
+                    Chip(str(R.string.panels_player_only), p.panels == Panels.MEDIA, accent) { vm.setEnum(K.panels, Panels.MEDIA) }
                 }
-                Labeled(str(R.string.dock_pos), G.DOCK, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                SubLabel(str(R.string.dock_pos))
                 ChipRow {
                     Chip(str(R.string.dock_bottom), p.dock == DockPos.BOTTOM, accent) { vm.setEnum(K.dock, DockPos.BOTTOM) }
                     Chip(str(R.string.dock_left), p.dock == DockPos.LEFT, accent) { vm.setEnum(K.dock, DockPos.LEFT) }
                     Chip(str(R.string.dock_right), p.dock == DockPos.RIGHT, accent) { vm.setEnum(K.dock, DockPos.RIGHT) }
                 }
-                StepRow(str(R.string.dock_thickness), "${p.dockDp} dp", accent, { vm.set(K.dockDp, p.dockDp - 8) }, { vm.set(K.dockDp, p.dockDp + 8) }, icon = G.DOCK)
-                StepRow(str(R.string.dock_icon_size), "${p.iconDp} dp", accent, { vm.set(K.iconDp, p.iconDp - 4) }, { vm.set(K.iconDp, p.iconDp + 4) }, icon = G.SIZE)
-                ToggleRow(str(R.string.dock_labels), p.dockLabels, accent, icon = G.INFO) { vm.set(K.labels, it) }
-                StepRow(str(R.string.divider_width), "${p.handleDp} dp", accent, { vm.set(K.handle, p.handleDp - 4) }, { vm.set(K.handle, p.handleDp + 4) }, icon = G.SIZE)
+                StepRow(str(R.string.dock_thickness), "${p.dockDp} dp", accent, { vm.set(K.dockDp, p.dockDp - 8) }, { vm.set(K.dockDp, p.dockDp + 8) })
+                StepRow(str(R.string.dock_icon_size), "${p.iconDp} dp", accent, { vm.set(K.iconDp, p.iconDp - 4) }, { vm.set(K.iconDp, p.iconDp + 4) })
+                ToggleRow(str(R.string.dock_labels), p.dockLabels, accent) { vm.set(K.labels, it) }
+                StepRow(str(R.string.divider_width), "${p.handleDp} dp", accent, { vm.set(K.handle, p.handleDp - 4) }, { vm.set(K.handle, p.handleDp + 4) })
                 StepRow(str(R.string.split_ratio), "${(p.ratio * 100).roundToInt()}/${100 - (p.ratio * 100).roundToInt()}", accent,
-                    { vm.set(K.ratio, p.ratio - 0.05f) }, { vm.set(K.ratio, p.ratio + 0.05f) }, icon = G.SPLIT)
-                ToggleRow(str(R.string.swap_panels), p.swapPanels, accent, icon = G.SWAP) { vm.set(K.swap, it) }
+                    { vm.set(K.ratio, p.ratio - 0.05f) }, { vm.set(K.ratio, p.ratio + 0.05f) })
+                ToggleRow(str(R.string.swap_panels), p.swapPanels, accent, hint = str(R.string.swap_panels_hint)) { vm.set(K.swap, it) }
             }
                 },
                 {
@@ -578,41 +576,41 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                     Chip(str(R.string.drawer_horizontal), p.drawerHorizontal, accent) { vm.set(K.drawerH, true) }
                 }
                 StepRow(str(if (p.drawerHorizontal) R.string.drawer_rows else R.string.drawer_cols), if (p.drawerSpan == 0) auto else "${p.drawerSpan}", accent,
-                    { vm.set(K.drawerSpan, p.drawerSpan - 1) }, { vm.set(K.drawerSpan, p.drawerSpan + 1) }, icon = G.GRID)
-                StepRow(str(R.string.drawer_icon_size), "${p.drawerIconDp} dp", accent, { vm.set(K.drawerIcon, p.drawerIconDp - 8) }, { vm.set(K.drawerIcon, p.drawerIconDp + 8) }, icon = G.SIZE)
-                Labeled(str(R.string.drawer_sort), G.GRID, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                    { vm.set(K.drawerSpan, p.drawerSpan - 1) }, { vm.set(K.drawerSpan, p.drawerSpan + 1) })
+                StepRow(str(R.string.drawer_icon_size), "${p.drawerIconDp} dp", accent, { vm.set(K.drawerIcon, p.drawerIconDp - 8) }, { vm.set(K.drawerIcon, p.drawerIconDp + 8) })
+                SubLabel(str(R.string.drawer_sort))
                 ChipRow {
-                    Chip(str(R.string.sort_alpha), p.sort == AppSort.ALPHA, accent, icon = G.GRID) { vm.setEnum(K.sort, AppSort.ALPHA) }
-                    Chip(str(R.string.sort_usage), p.sort == AppSort.USAGE, accent, icon = G.CLOCK) { vm.setEnum(K.sort, AppSort.USAGE) }
-                    Chip(str(R.string.sort_custom), p.sort == AppSort.CUSTOM, accent, icon = G.SWAP) { vm.enableCustomOrder() }
+                    Chip(str(R.string.sort_alpha), p.sort == AppSort.ALPHA, accent) { vm.setEnum(K.sort, AppSort.ALPHA) }
+                    Chip(str(R.string.sort_usage), p.sort == AppSort.USAGE, accent) { vm.setEnum(K.sort, AppSort.USAGE) }
+                    Chip(str(R.string.sort_custom), p.sort == AppSort.CUSTOM, accent) { vm.enableCustomOrder() }
                 }
-                ChooseRow(str(R.string.drawer_manage), str(R.string.drawer_hidden_count, p.hidden.size), accent, icon = G.EYE_OFF) { vm.manager = true }
-                ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent, icon = G.GEAR) { vm.set(K.drawerDev, it) }
-                ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent, icon = G.INFO) { vm.set(K.drawerLabels, it) }
-                ToggleRow(str(R.string.drawer_fill), p.drawerFill, accent, icon = G.GRID) { vm.set(K.drawerFill, it) }
+                ChooseRow(str(R.string.drawer_manage), str(R.string.drawer_hidden_count, p.hidden.size), accent) { vm.manager = true }
+                ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent) { vm.set(K.drawerDev, it) }
+                ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent) { vm.set(K.drawerLabels, it) }
+                ToggleRow(str(R.string.drawer_fill), p.drawerFill, accent, hint = str(R.string.drawer_fill_hint)) { vm.set(K.drawerFill, it) }
             }
                 },
                 {
             Section(str(R.string.sec_apps), accent, G.NAV) {
-                ChooseRow(str(R.string.navigator), appLabel(p.navPkg) ?: notSet, accent, icon = G.NAV) { vm.picker = PickerKind.NAV }
-                ChooseRow(str(R.string.player), appLabel(p.mediaPkg) ?: notSet, accent, icon = G.MUSIC) { vm.picker = PickerKind.PLAYER }
+                ChooseRow(str(R.string.navigator), appLabel(p.navPkg) ?: notSet, accent) { vm.picker = PickerKind.NAV }
+                ChooseRow(str(R.string.player), appLabel(p.mediaPkg) ?: notSet, accent) { vm.picker = PickerKind.PLAYER }
                 Txt(str(R.string.apps_hint), 14, TextLo)
                 ChipRow(Modifier.padding(top = 8.dp)) {
-                    Chip(str(R.string.mode_widget), p.mediaMode == MediaMode.WIDGET, accent, icon = G.MUSIC) { vm.setEnum(K.mode, MediaMode.WIDGET) }
-                    Chip(str(R.string.mode_app_embedded), p.mediaMode == MediaMode.EMBED, accent, icon = G.GRID) { vm.setEnum(K.mode, MediaMode.EMBED) }
-                    Chip(str(R.string.mode_radio_native), p.mediaMode == MediaMode.RADIO, accent, icon = G.RADIO) { vm.setEnum(K.mode, MediaMode.RADIO) }
+                    Chip(str(R.string.mode_widget), p.mediaMode == MediaMode.WIDGET, accent) { vm.setEnum(K.mode, MediaMode.WIDGET) }
+                    Chip(str(R.string.mode_app_embedded), p.mediaMode == MediaMode.EMBED, accent) { vm.setEnum(K.mode, MediaMode.EMBED) }
+                    Chip(str(R.string.mode_radio_native), p.mediaMode == MediaMode.RADIO, accent) { vm.setEnum(K.mode, MediaMode.RADIO) }
                 }
             }
                 },
                 {
             Section(str(R.string.sec_radio), accent, G.RADIO) {
                 if (vm.radio.canTune) {
-                ToggleRow(str(R.string.swc_seek), p.swcSeek, accent, icon = G.SEEK_UP) { vm.set(K.swcSeek, it) }
-                Labeled(str(R.string.fm_step), G.RADIO, TextLo, 15)
+                ToggleRow(str(R.string.swc_seek), p.swcSeek, accent) { vm.set(K.swcSeek, it) }
+                SubLabel(str(R.string.fm_step))
                 ChipRow {
                     listOf(50, 100, 200).forEach { k -> Chip("$k kHz", p.fmStepKhz == k, accent) { vm.set(K.fmStep, k) } }
                 }
-                Labeled(str(R.string.am_step), G.RADIO, TextLo, 15, modifier = Modifier.padding(top = 8.dp))
+                SubLabel(str(R.string.am_step))
                 ChipRow {
                     listOf(9, 10).forEach { k -> Chip("$k kHz", p.amStepKhz == k, accent) { vm.set(K.amStep, k) } }
                 }
@@ -627,29 +625,29 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 },
                 {
             Section(str(R.string.sec_dock), accent, G.DOCK) {
-                ToggleRow(str(R.string.dock_overlay), p.dockOverlay, accent, icon = G.DOCK) { vm.set(K.dockOverlay, it) }
-                ToggleRow(str(R.string.previews), p.previews, accent, icon = G.NAV) { vm.set(K.previews, it) }
-                ToggleRow(str(R.string.embed_windows), p.embedWindows, accent, icon = G.SPLIT) { vm.set(K.embedWindows, it) }
-                ToggleRow(str(R.string.clock_24h), p.clock24h, accent, icon = G.CLOCK) { vm.set(K.clock24, it) }
-                ToggleRow(str(R.string.show_date), p.showDate, accent, icon = G.CLOCK) { vm.set(K.date, it) }
-                ToggleRow(str(R.string.show_wifi), p.showWifi, accent, icon = G.WIFI) { vm.set(K.wifi, it) }
-                ToggleRow(str(R.string.show_bt), p.showBt, accent, icon = G.BT) { vm.set(K.bt, it) }
+                ToggleRow(str(R.string.dock_overlay), p.dockOverlay, accent, hint = str(R.string.dock_overlay_hint)) { vm.set(K.dockOverlay, it) }
+                ToggleRow(str(R.string.previews), p.previews, accent, hint = str(R.string.previews_hint)) { vm.set(K.previews, it) }
+                ToggleRow(str(R.string.embed_windows), p.embedWindows, accent, hint = str(R.string.embed_windows_hint)) { vm.set(K.embedWindows, it) }
+                ToggleRow(str(R.string.clock_24h), p.clock24h, accent) { vm.set(K.clock24, it) }
+                ToggleRow(str(R.string.show_date), p.showDate, accent) { vm.set(K.date, it) }
+                ToggleRow(str(R.string.show_wifi), p.showWifi, accent) { vm.set(K.wifi, it) }
+                ToggleRow(str(R.string.show_bt), p.showBt, accent) { vm.set(K.bt, it) }
             }
                 },
                 {
             Section(str(R.string.sec_cartools), accent, G.GAUGE) {
-                StepRow(str(R.string.sensor_interval), "${p.toolsIntervalSec} s", accent, { vm.set(K.interval, p.toolsIntervalSec - 1) }, { vm.set(K.interval, p.toolsIntervalSec + 1) }, icon = G.CLOCK)
-                StepRow(str(R.string.temp_warn), "${p.tempWarnC} °C", accent, { vm.set(K.tempWarn, p.tempWarnC - 5) }, { vm.set(K.tempWarn, p.tempWarnC + 5) }, icon = G.GAUGE)
+                StepRow(str(R.string.sensor_interval), "${p.toolsIntervalSec} s", accent, { vm.set(K.interval, p.toolsIntervalSec - 1) }, { vm.set(K.interval, p.toolsIntervalSec + 1) })
+                StepRow(str(R.string.temp_warn), "${p.tempWarnC} °C", accent, { vm.set(K.tempWarn, p.tempWarnC - 5) }, { vm.set(K.tempWarn, p.tempWarnC + 5) })
             }
                 },
                 {
             Section(str(R.string.sec_boot), accent, G.POWER) {
-                ToggleRow(str(R.string.auto_start), p.autoStart, accent, icon = G.NAV) { vm.set(K.auto, it) }
-                StepRow(str(R.string.auto_start_delay), "${p.autoStartDelaySec} s", accent, { vm.set(K.autoDelay, p.autoStartDelaySec - 1) }, { vm.set(K.autoDelay, p.autoStartDelaySec + 1) }, icon = G.CLOCK)
-                ToggleRow(str(R.string.auto_play), p.autoPlay, accent, icon = G.PLAY) { vm.set(K.play, it) }
-                StepRow(str(R.string.auto_play_delay), "${p.autoPlayDelaySec} s", accent, { vm.set(K.playDelay, p.autoPlayDelaySec - 1) }, { vm.set(K.playDelay, p.autoPlayDelaySec + 1) }, icon = G.CLOCK)
-                ToggleRow(str(R.string.resume_on_wake), p.resumeOnWake, accent, icon = G.POWER) { vm.set(K.resume, it) }
-                StepRow(str(R.string.wake_delay), "${p.wakeDelaySec} s", accent, { vm.set(K.wakeDelay, p.wakeDelaySec - 1) }, { vm.set(K.wakeDelay, p.wakeDelaySec + 1) }, icon = G.CLOCK)
+                ToggleRow(str(R.string.auto_start), p.autoStart, accent) { vm.set(K.auto, it) }
+                StepRow(str(R.string.auto_start_delay), "${p.autoStartDelaySec} s", accent, { vm.set(K.autoDelay, p.autoStartDelaySec - 1) }, { vm.set(K.autoDelay, p.autoStartDelaySec + 1) })
+                ToggleRow(str(R.string.auto_play), p.autoPlay, accent) { vm.set(K.play, it) }
+                StepRow(str(R.string.auto_play_delay), "${p.autoPlayDelaySec} s", accent, { vm.set(K.playDelay, p.autoPlayDelaySec - 1) }, { vm.set(K.playDelay, p.autoPlayDelaySec + 1) })
+                ToggleRow(str(R.string.resume_on_wake), p.resumeOnWake, accent) { vm.set(K.resume, it) }
+                StepRow(str(R.string.wake_delay), "${p.wakeDelaySec} s", accent, { vm.set(K.wakeDelay, p.wakeDelaySec - 1) }, { vm.set(K.wakeDelay, p.wakeDelaySec + 1) })
             }
                 },
                 {
@@ -676,18 +674,18 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 val write = remember(tick) { CarTools.canWriteSettings(ctx) }
                 val listener = remember(tick) { vm.media.hasAccess() }
                 val freeform = remember(tick) { Embedder.freeformEnabled(ctx) }
-                PermRow(str(R.string.perm_overlay), overlay, accent, icon = G.DOCK) { vm.closeOverlays(); openOverlayAccess(ctx) }
-                PermRow(str(R.string.perm_write), write, accent, icon = G.SUN) { vm.closeOverlays(); openWriteSettings(ctx) }
-                PermRow(str(R.string.perm_listener), listener, accent, icon = G.MUSIC) { vm.closeOverlays(); openNotificationAccess(ctx) }
-                PermRow(str(R.string.perm_usage), null, accent, icon = G.CLOCK) { vm.closeOverlays(); openUsageAccess(ctx) }
-                Stat(str(R.string.freeform_windows), str(if (freeform) R.string.freeform_on else R.string.freeform_off), if (freeform) accent else Warn, icon = G.SPLIT)
+                PermRow(str(R.string.perm_overlay), overlay, accent) { vm.closeOverlays(); openOverlayAccess(ctx) }
+                PermRow(str(R.string.perm_write), write, accent) { vm.closeOverlays(); openWriteSettings(ctx) }
+                PermRow(str(R.string.perm_listener), listener, accent) { vm.closeOverlays(); openNotificationAccess(ctx) }
+                PermRow(str(R.string.perm_usage), null, accent) { vm.closeOverlays(); openUsageAccess(ctx) }
+                Stat(str(R.string.freeform_windows), str(if (freeform) R.string.freeform_on else R.string.freeform_off), if (freeform) accent else Warn)
             }
                 },
             )
             if (LocalConfiguration.current.screenWidthDp >= 800) {
                 Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(32.dp)) {
-                    Column(Modifier.weight(1f)) { blocks.take(5).forEach { it() } }
-                    Column(Modifier.weight(1f)) { blocks.drop(5).forEach { it() } }
+                    Column(Modifier.weight(1f)) { blocks.take(4).forEach { it() } }
+                    Column(Modifier.weight(1f)) { blocks.drop(4).forEach { it() } }
                 }
             } else blocks.forEach { it() }
         }
@@ -696,16 +694,14 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
 
 @Composable
 private fun ChooseRow(label: String, value: String, accent: Color, icon: G? = null, onClick: () -> Unit) =
-    Row(Modifier.fillMaxWidth().height(56.dp).clickable(onClick = onClick), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Labeled(label, icon, TextHi, 17)
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Txt(value, 17, TextLo); Txt(str(R.string.choose), 17, accent, bold = true)
-        }
+    Row(Modifier.fillMaxWidth().height(52.dp).clickable(onClick = onClick), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+        Labeled(label, icon, TextHi, 16, modifier = Modifier.weight(1f))
+        Txt(value, 15, TextLo, modifier = Modifier.widthIn(max = 140.dp)); Txt(str(R.string.choose), 15, accent, bold = true)
     }
 
 @Composable
 private fun PermRow(label: String, ok: Boolean?, accent: Color, icon: G? = null, onClick: () -> Unit) =
-    Row(Modifier.fillMaxWidth().height(56.dp).clickable(onClick = onClick), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Labeled(label, icon, TextHi, 17)
+    Row(Modifier.fillMaxWidth().height(52.dp).clickable(onClick = onClick), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+        Labeled(label, icon, TextHi, 16, modifier = Modifier.weight(1f))
         Txt(str(when (ok) { true -> R.string.perm_ok; false -> R.string.perm_grant; null -> R.string.perm_open }), 17, if (ok == true) accent else Warn, bold = true)
     }

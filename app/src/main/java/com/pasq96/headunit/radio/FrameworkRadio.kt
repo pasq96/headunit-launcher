@@ -5,66 +5,50 @@ import android.util.Log
 import java.lang.reflect.Method
 
 /**
- * Reflection wrapper around the platform class the stock radio itself uses (com.imotor.framework.radio.RadioManager,
- * present in the firmware, not in the SDK). Method names follow the stock app's own log lines; every call is
- * best-effort and logged under HURadio so a wrong name is visible with `logcat -d -s HURadio`.
+ * Reflection wrapper around com.imotor.framework.radio.RadioManager, the firmware class the stock radio itself drives
+ * (static getInstance(Context); seekToNext/Prev, fineTuneNext/Prev, scanAS, stopWork, switchAf/Ta/Stereo, toggleLOC,
+ * switchWaveband(int), play(band, freq, index), getCurrentStation, getRadioStatus). Every call is logged under HURadio.
  */
 internal class FrameworkRadio(private val ctx: Context) {
     @Volatile private var mgr: Any? = null
-    private var methods: List<Method> = emptyList()
 
     val ready get() = mgr != null
-    fun has(vararg names: String) = methods.any { m -> names.any { it.equals(m.name, true) } }
 
     fun connect() {
         if (mgr != null) return
-        val found = runCatching { locate() }.onFailure { Log.w(TAG, "locate failed: $it") }.getOrNull()
-        mgr = found
-        methods = found?.javaClass?.methods?.toList().orEmpty()
-        Log.w(TAG, "manager=${found?.javaClass?.name}")
-        methods.filter { it.declaringClass != Any::class.java }.sortedBy { it.name }
-            .forEach { Log.w(TAG, "api ${it.name}(${it.parameterTypes.joinToString { p -> p.simpleName }}): ${it.returnType.simpleName}") }
+        mgr = CLASSES.firstNotNullOfOrNull { n ->
+            runCatching { Class.forName(n).getMethod("getInstance", Context::class.java).invoke(null, ctx) }
+                .onFailure { Log.w(TAG, "$n.getInstance: ${it.cause ?: it}") }.getOrNull()
+        }
+        Log.w(TAG, "manager=${mgr?.javaClass?.name}")
     }
 
-    private fun locate(): Any? {
-        val cls = runCatching { Class.forName(CLS) }.getOrNull()
-        if (cls != null) {
-            for (n in listOf("getInstance", "getDefault", "get")) {
-                runCatching { cls.getMethod(n, Context::class.java).invoke(null, ctx) }.getOrNull()?.let { return it }
-                runCatching { cls.getMethod(n).invoke(null) }.getOrNull()?.let { return it }
-            }
-        }
-        for (n in listOf("radio", "imotor_radio", "imradio", "radio_manager")) {
-            ctx.getSystemService(n)?.takeIf { it.javaClass.name.contains("Radio", true) }?.let { return it }
-        }
-        return runCatching { Class.forName(LOCAL).getConstructor(Context::class.java).newInstance(ctx) }.getOrNull()
-    }
-
-    /** Calls the first method matching any of [names] with [args]; true when one of them ran without throwing. */
-    fun call(names: List<String>, vararg args: Any?): Boolean {
+    /** Invokes [name] on the manager; true when it ran without throwing. */
+    fun call(name: String, vararg args: Any?): Boolean {
         val m = mgr ?: return false
-        for (me in methods) {
-            if (names.none { it.equals(me.name, true) } || me.parameterCount != args.size) continue
-            val conv = args.indices.map { coerce(args[it], me.parameterTypes[it]) }
-            if (conv.any { it === BAD }) continue
-            val r = runCatching { me.invoke(m, *conv.toTypedArray()) }
-            Log.w(TAG, "${me.name}(${args.joinToString()}) -> ${r.getOrNull()} ${r.exceptionOrNull()?.cause ?: r.exceptionOrNull() ?: ""}")
-            if (r.isSuccess) return true
-        }
-        return false
+        val r = runCatching { invoke(m, name, args) }
+        Log.w(TAG, "$name(${args.joinToString()}) -> ${r.getOrNull()} ${r.exceptionOrNull()?.let { it.cause ?: it } ?: ""}")
+        return r.isSuccess
     }
 
-    private fun coerce(v: Any?, t: Class<*>): Any? = when (t) {
-        java.lang.Boolean.TYPE, java.lang.Boolean::class.java -> when (v) { is Boolean -> v; is Int -> v != 0; else -> BAD }
-        Integer.TYPE, Integer::class.java -> when (v) { is Int -> v; is Boolean -> if (v) 1 else 0; else -> BAD }
-        java.lang.Long.TYPE, java.lang.Long::class.java -> when (v) { is Int -> v.toLong(); is Boolean -> if (v) 1L else 0L; else -> BAD }
-        else -> BAD
+    /** Reads a no-arg getter chain, e.g. get("getCurrentStation", "getFreq"); null on any failure. */
+    fun get(vararg chain: String): Any? {
+        var o: Any? = mgr ?: return null
+        for (n in chain) o = runCatching { invoke(o!!, n, emptyArray()) }.getOrNull() ?: return null
+        return o
+    }
+
+    private fun invoke(target: Any, name: String, args: Array<out Any?>): Any? {
+        val m: Method = target.javaClass.methods.firstOrNull { it.name == name && it.parameterCount == args.size }
+            ?: throw NoSuchMethodException(name)
+        val conv = args.mapIndexed { i, v ->
+            when (m.parameterTypes[i]) { Int::class.javaPrimitiveType, Int::class.javaObjectType -> (v as Number).toInt(); else -> v }
+        }
+        return m.invoke(target, *conv.toTypedArray())
     }
 
     private companion object {
         const val TAG = "HURadio"
-        const val CLS = "com.imotor.framework.radio.RadioManager"
-        const val LOCAL = "com.imotor.framework.radio.LocalRadioManager"
-        val BAD = Any()
+        val CLASSES = listOf("com.imotor.framework.radio.RadioManager", "com.imotor.framework.radio.LocalRadioManager")
     }
 }

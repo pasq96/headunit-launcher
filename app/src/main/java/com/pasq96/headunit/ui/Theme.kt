@@ -49,7 +49,7 @@ fun HeadUnitTheme(hub: LauncherHub, content: @Composable () -> Unit) {
 }
 
 private fun localized(base: Context, lang: Lang): Context {
-    val cfg = Configuration(base.resources.configuration).apply { setLocale(Locale(lang.tag)) }
+    val cfg = Configuration(base.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang.tag)) }
     return base.createConfigurationContext(cfg)
 }
 

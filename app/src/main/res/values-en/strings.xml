@@ -11,7 +11,7 @@
     <string name="media_no_track">No track</string>
     <string name="media_open_source">Open source app</string>
     <string name="emg_android_settings">Android settings</string>
-    <string name="emg_default_apps">Default apps (change launcher)</string>
+    <string name="emg_default_apps">Default apps</string>
     <string name="drawer_title">Applications</string>
     <string name="menu_pin">Pin to dock</string>
     <string name="menu_unpin">Remove from dock</string>
@@ -35,8 +35,8 @@
     <string name="panels_player_only">Player only</string>
     <string name="mode_widget">Player: widget</string>
     <string name="mode_app">Player: app</string>
-    <string name="previews">App previews in the panels (uses internal ADB)</string>
-    <string name="embed_windows">Embedded windows in the panels (freeform, experimental)</string>
+    <string name="previews">App previews in panels</string>
+    <string name="embed_windows">Windows in panels</string>
     <string name="tab_music">Music</string>
     <string name="tab_radio">Radio</string>
     <string name="mode_radio">FM radio</string>
@@ -53,15 +53,15 @@
     <string name="lang_en">English</string>
     <string name="accent_label">Accent color</string>
     <string name="sec_layout">Layout</string>
-    <string name="dock_bottom">Dock at the bottom</string>
-    <string name="dock_left">Dock on the left</string>
-    <string name="dock_right">Dock on the right</string>
+    <string name="dock_bottom">Bottom</string>
+    <string name="dock_left">Left</string>
+    <string name="dock_right">Right</string>
     <string name="dock_thickness">Dock thickness</string>
     <string name="dock_icon_size">Dock icon size</string>
     <string name="dock_labels">Labels under the icons</string>
     <string name="divider_width">Divider width</string>
-    <string name="split_ratio">Left/right ratio</string>
-    <string name="swap_panels">Swap panels (player on the left)</string>
+    <string name="split_ratio">Panel ratio</string>
+    <string name="swap_panels">Swap panels</string>
     <string name="sec_drawer">App drawer</string>
     <string name="drawer_vertical">Vertical scrolling</string>
     <string name="drawer_horizontal">Horizontal scrolling</string>
@@ -69,26 +69,26 @@
     <string name="drawer_rows">Rows (0 = auto)</string>
     <string name="drawer_icon_size">Drawer icon size</string>
     <string name="drawer_labels">App names</string>
-    <string name="drawer_fill">Fill the screen (automatic grid)</string>
+    <string name="drawer_fill">Fill the screen</string>
     <string name="auto">Auto</string>
     <string name="sec_apps">Apps</string>
     <string name="navigator">Navigator</string>
     <string name="player">Player</string>
     <string name="choose">Choose ›</string>
     <string name="apps_hint">Long-press an app in the drawer to assign or pin it.</string>
-    <string name="mode_app_embedded">Player: embedded app</string>
-    <string name="mode_radio_native">Native FM radio</string>
+    <string name="mode_app_embedded">Player: app</string>
+    <string name="mode_radio_native">FM radio</string>
     <string name="sec_radio">Native FM radio</string>
     <string name="swc_seek">Steering wheel: seek instead of presets</string>
     <string name="fm_step">FM step</string>
     <string name="am_step">AM step</string>
-    <string name="presets_import">Import presets from the radio</string>
+    <string name="presets_import">Import presets</string>
     <string name="radio_open_stock">Open stock radio</string>
     <string name="radio_stock">Stock radio</string>
     <string name="radio_no_data">Frequency unavailable: grant permissions from internal ADB and restart the app</string>
     <string name="radio_hint">Tap: recall · long-press: save or clear</string>
     <string name="sec_dock">Dock</string>
-    <string name="dock_overlay">Dock always above apps (overlay, needs freeform)</string>
+    <string name="dock_overlay">Dock always on top</string>
     <string name="clock_24h">24-hour clock</string>
     <string name="sec_cartools">Car Tools</string>
     <string name="sensor_interval">Sensor refresh</string>
@@ -104,14 +104,14 @@
     <string name="src_broadcast">Broadcast</string>
     <string name="src_setting">Setting</string>
     <string name="src_sysfs">sysfs file</string>
-    <string name="led_invert">Invert signal (LEDs on = day)</string>
+    <string name="led_invert">Invert signal</string>
     <string name="led_state">Detected state</string>
     <string name="led_on">LEDs on</string>
     <string name="led_off">LEDs off</string>
     <string name="led_unknown">Unknown</string>
     <string name="led_hint">Signal not yet verified on your head unit: see IlluminationContract.kt</string>
     <string name="sec_boot">Startup and wake (ACC)</string>
-    <string name="auto_start">Start the navigator at power-on</string>
+    <string name="auto_start">Start navigator at power-on</string>
     <string name="auto_start_delay">Navigator start delay</string>
     <string name="auto_play">Resume music (PLAY)</string>
     <string name="auto_play_delay">PLAY delay</string>
@@ -120,7 +120,7 @@
     <string name="sec_perms">Permissions and status</string>
     <string name="perm_overlay">Display over other apps (overlay)</string>
     <string name="perm_write">Modify system settings</string>
-    <string name="perm_listener">Notification access (cover and title)</string>
+    <string name="perm_listener">Notification access</string>
     <string name="perm_usage">Usage access</string>
     <string name="freeform_windows">Freeform windows</string>
     <string name="freeform_on">on</string>
@@ -147,7 +147,7 @@
     <string name="msg_done">Done</string>
     <string name="msg_use_settings">Not allowed from here: opened app info</string>
     <string name="drawer_dev">Developer options</string>
-    <string name="drawer_dev_show">Developer options shortcut</string>
+    <string name="drawer_dev_show">Developer shortcut</string>
     <string name="sec_autogrant">Internal ADB</string>
     <string name="autogrant_run">Grant all permissions</string>
     <string name="autogrant_busy">Connecting to internal ADB…</string>
@@ -174,7 +174,7 @@
     <string name="sort_alpha">A–Z</string>
     <string name="sort_usage">Most used</string>
     <string name="sort_custom">Custom</string>
-    <string name="drawer_manage">Manage drawer apps</string>
+    <string name="drawer_manage">Hidden apps</string>
     <string name="drawer_hidden_count">%1$d hidden</string>
     <string name="manage_title">Drawer apps</string>
     <string name="manage_hint">Tap the eye to hide or show. Choose "Custom" to reorder.</string>
@@ -183,4 +183,10 @@
     <string name="menu_move">Move</string>
     <string name="show_wifi">WiFi / Hotspot icon</string>
     <string name="show_bt">Bluetooth icon</string>
+    <string name="dock_overlay_hint">Above apps, needs freeform</string>
+    <string name="previews_hint">Uses internal ADB</string>
+    <string name="embed_windows_hint">Freeform, experimental</string>
+    <string name="drawer_fill_hint">Automatic grid</string>
+    <string name="swap_panels_hint">Player on the left</string>
+    <string name="led_invert_hint">LEDs on = day</string>
 </resources>

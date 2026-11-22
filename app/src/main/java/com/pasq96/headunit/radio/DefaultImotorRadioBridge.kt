@@ -28,7 +28,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     private val _state = MutableStateFlow(RadioState())
     override val state: StateFlow<RadioState> = _state.asStateFlow()
     private val fw = FrameworkRadio(ctx)
-    override val canTune get() = fw.has("stepUpDown", "setFrequency")
+    override val canTune = true
     private var job: Job? = null
     @Volatile private var proc: Process? = null
     @Volatile private var lastSeen = 0L
@@ -36,7 +36,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
 
     override fun start() {
         if (job?.isActive == true) return
-        scope.launch { fw.connect() }
+        scope.launch { runCatching { fw.connect() }; while (isActive) { runCatching { poll() }; delay(700) } }
         job = scope.launch {
             while (isActive) { runCatching { readLog() }; delay(5_000) }
         }
@@ -77,6 +77,20 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         RE_RT.find(line)?.let { m -> touch { copy(ps = m.groupValues[1].trim().ifEmpty { null }, rt = m.groupValues[2].trim().ifEmpty { null }) } }
     }
 
+    /** Direct state read from the manager: works without READ_LOGS and keeps the panel live while the stock app is closed. */
+    private fun poll() {
+        val f = (fw.get("getCurrentStation", "getFreq") as? Int)?.takeIf { it > 0 } ?: return
+        (fw.get("getCurrentStation", "getBand") as? Int)?.let { bandOf(it) }
+        apply(f)
+        val st = fw.get("getRadioStatus") ?: return
+        fun flag(n: String) = runCatching { st.javaClass.getMethod(n).invoke(st) as? Boolean }.getOrNull()
+        val ps = runCatching { st.javaClass.getMethod("getPsName").invoke(st) as? String }.getOrNull()?.trim()
+        touch {
+            copy(ta = flag("getStatusTA") ?: ta, af = flag("getStatusAF") ?: af, stereoOn = flag("getStatusST") ?: stereoOn,
+                loc = flag("getStatusFMLOC") ?: loc, stereo = flag("getStereo") ?: stereo, ps = if (ps.isNullOrEmpty()) this.ps else ps)
+        }
+    }
+
     private fun bandOf(i: Int) { touch { copy(band = when (i) { 1 -> Band.FM1; 2 -> Band.FM2; else -> band }) } }
 
     /** The radio's own station memory, FM only (tens of kHz); the factory default list is ignored while it is all band edges. */
@@ -97,13 +111,14 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         }
     }
 
-    // ---- commands: platform manager first, stock service actions as fallback ----
+    // ---- commands: the firmware RadioManager, the same calls the stock app makes ----
 
     private fun run(block: () -> Unit) { scope.launch { runCatching { if (!fw.ready) fw.connect(); block() } } }
+    private fun code(b: Band) = when (b) { Band.FM1 -> 1; Band.FM2 -> 2; Band.AM -> 3 }
 
-    override fun step(up: Boolean, stepKhz: Int) = run { fw.call(listOf("stepUpDown"), up) }
-    override fun seekUp() = run { if (!fw.call(SEEK, true)) cmd(NEXT) }
-    override fun seekDown() = run { if (!fw.call(SEEK, false)) cmd(PREV) }
+    override fun step(up: Boolean, stepKhz: Int) = run { fw.call(if (up) "fineTuneNext" else "fineTunePrev") }
+    override fun seekUp() = run { fw.call("seekToNext") }
+    override fun seekDown() = run { fw.call("seekToPrev") }
     override fun nextStation() = walk(true)
     override fun previousStation() = walk(false)
 
@@ -115,25 +130,21 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         if (t != null) setFrequency(t) else if (next) seekUp() else seekDown()
     }
 
+    /** FM goes out in tens of kHz (9745 = 97.45 MHz), AM in kHz; index -1 = not a memory slot. */
     override fun setFrequency(khz: Int) = run {
-        val fm = khz >= 20_000
-        fw.call(listOf("setFrequency", "setFreq"), if (fm) khz / 10 else khz)
+        val b = _state.value.band
+        fw.call("play", code(b), if (b == Band.AM) khz else khz / 10, -1)
     }
 
-    override fun setBand(band: Band) {
-        val cur = _state.value.band
-        if (band == cur) return
-        if ((band == Band.AM) != (cur == Band.AM)) run { if (!fw.call(listOf("setBand"), if (band == Band.AM) 1 else 0)) cmd(BAND) } else cmd(BAND)
-    }
-
-    override fun toggleBand() = cmd(BAND)
-    override fun toggleMute() = run { fw.call(listOf("setMute"), !_state.value.muted); _state.value = _state.value.copy(muted = !_state.value.muted) }
-    override fun toggleAf() = run { fw.call(listOf("setAfEnabled", "setAf"), !_state.value.af) }
-    override fun toggleTa() = run { fw.call(listOf("setTaEnabled", "setTa"), !_state.value.ta) }
-    override fun toggleStereo() = run { fw.call(listOf("setStereo"), !_state.value.stereoOn) }
-    override fun toggleLoc() = run { fw.call(listOf("setLoc"), !_state.value.loc) }
-    override fun autoScan() = run { fw.call(listOf("autoScan")) }
-    override fun stopSeek() = run { fw.call(listOf("stopSeek")) }
+    override fun setBand(band: Band) = run { fw.call("switchWaveband", code(band)) }
+    override fun toggleBand() = run { fw.call("switchWaveband", code(Band.entries[(_state.value.band.ordinal + 1) % Band.entries.size])) }
+    override fun toggleMute() = Unit
+    override fun toggleAf() = run { fw.call("switchAf") }
+    override fun toggleTa() = run { fw.call("switchTa") }
+    override fun toggleStereo() = run { fw.call("switchStereo") }
+    override fun toggleLoc() = run { fw.call("toggleLOC") }
+    override fun autoScan() = run { fw.call("scanAS") }
+    override fun stopSeek() = run { fw.call("stopWork") }
 
     override fun openStockApp(): Boolean = Embedder.launch(ctx, PKG)
 
@@ -150,7 +161,6 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         const val PREV = "com.imotor.radio.ACTION_PREV_STATION"
         const val BAND = "com.imotor.radio.ACTION_SWITCH_BAND"
         const val LIVE_MS = 4_000L
-        val SEEK = listOf("seekUpDown", "seek", "startSeek", "seekStation", "searchUpDown")
         val RE_STATION = Regex("RadioControl: +---> onStationChanged: StationInfo \\{freq=(\\d+), band=(\\d)")
         val RE_WORK = Regex("WorkInfo \\{workMode=\\d+, seekType=\\d+, seekStatus=(\\d)")
         val RE_LIST = Regex("FM list: \\[([^\\]]*)\\]")

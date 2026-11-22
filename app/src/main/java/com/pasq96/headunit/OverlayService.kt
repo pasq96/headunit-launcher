@@ -104,7 +104,8 @@ class OverlayService : Service() {
     private fun updatePanels(open: Boolean) {
         if (open && panelView == null) {
             val nv = composeView { OverlayLayer(hub) }
-            val lp = params(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, Gravity.NO_GRAVITY)
+            // not layout-in-screen: panels stay inside the area left by the system bars instead of sliding under them
+            val lp = params(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, Gravity.NO_GRAVITY, inScreen = false)
             if (runCatching { wm.addView(nv, lp) }.isSuccess) panelView = nv
         } else if (!open && panelView != null) {
             runCatching { wm.removeView(panelView) }
@@ -132,9 +133,9 @@ class OverlayService : Service() {
         }
     }
 
-    private fun params(w: Int, h: Int, gravity: Int) = WindowManager.LayoutParams(
+    private fun params(w: Int, h: Int, gravity: Int, inScreen: Boolean = true) = WindowManager.LayoutParams(
         w, h, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or (if (inScreen) WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN else 0) or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
         PixelFormat.TRANSLUCENT,
     ).also { it.gravity = gravity }
 

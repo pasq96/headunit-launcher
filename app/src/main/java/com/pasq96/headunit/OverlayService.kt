@@ -13,6 +13,7 @@ import android.graphics.PixelFormat
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.snapshotFlow
@@ -118,9 +119,10 @@ class OverlayService : Service() {
 
     private fun updatePanels(open: Boolean) {
         if (open && panelView == null) {
-            val nv = composeView { OverlayLayer(hub) }
+            // focusable window: it is the one that receives the head unit's BACK key while a panel is open
+            val nv = composeView(onBack = { hub.closeOverlays() }) { OverlayLayer(hub) }
             // not layout-in-screen: panels stay inside the area left by the system bars instead of sliding under them
-            val lp = params(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, Gravity.NO_GRAVITY, inScreen = false)
+            val lp = params(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, Gravity.NO_GRAVITY, inScreen = false, focusable = true)
             if (runCatching { wm.addView(nv, lp) }.isSuccess) panelView = nv
         } else if (!open && panelView != null) {
             runCatching { wm.removeView(panelView) }
@@ -148,13 +150,19 @@ class OverlayService : Service() {
         }
     }
 
-    private fun params(w: Int, h: Int, gravity: Int, inScreen: Boolean = true) = WindowManager.LayoutParams(
+    private fun params(w: Int, h: Int, gravity: Int, inScreen: Boolean = true, focusable: Boolean = false) = WindowManager.LayoutParams(
         w, h, WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or (if (inScreen) WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN else 0) or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        (if (focusable) 0 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE) or (if (inScreen) WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN else 0) or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
         PixelFormat.TRANSLUCENT,
     ).also { it.gravity = gravity }
 
-    private fun composeView(content: @Composable () -> Unit) = ComposeView(this).apply {
+    private fun composeView(onBack: (() -> Unit)? = null, content: @Composable () -> Unit) = (if (onBack == null) ComposeView(this) else object : ComposeView(this) {
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            if (event.keyCode != KeyEvent.KEYCODE_BACK && event.keyCode != KeyEvent.KEYCODE_ESCAPE) return super.dispatchKeyEvent(event)
+            if (event.action == KeyEvent.ACTION_UP) onBack()
+            return true
+        }
+    }).apply {
         setViewTreeLifecycleOwner(owner)
         setViewTreeSavedStateRegistryOwner(owner)
         setViewTreeViewModelStoreOwner(owner)

@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.R
-import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.radio.Band
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -58,26 +57,14 @@ private fun stepLabel(khz: Int) = if (khz < 100 && khz != 50) "$khz kHz" else Bi
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
+fun RadioPanel(vm: LauncherHub, accent: Color, modifier: Modifier) {
     val r by vm.radio.state.collectAsStateWithLifecycle()
     val am = r.band == Band.AM
-    val step = if (am) p.amStepKhz else p.fmStepKhz
-    val label = stepLabel(step)
-    val tune = vm.radio.canTune
 
+    // Tile = glance view: frequency, station name and prev/next. Everything else lives in the full radio section (tap).
     Column(modifier.clip(RoundedCornerShape(16.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
-            if (tune) {
-                Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
-                Chip("AF", r.af, accent, height = 56.dp) { vm.radio.toggleAf() }
-                Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
-            } else Chip(if (r.band == Band.AM) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
-            Box(Modifier.weight(1f), Alignment.CenterEnd) {
-                Txt(str(R.string.radio_stock), 13, TextLo, modifier = Modifier.clickable { vm.radio.openStockApp() }.padding(12.dp))
-            }
-        }
-
         Column(Modifier.fillMaxWidth().weight(1f).clickable { vm.radioScreen = true }, Arrangement.Center, Alignment.CenterHorizontally) {
+            Txt(if (am) "AM" else "FM", 15, TextLo, bold = true, align = TextAlign.Center)
             Txt(fmtFreq(r.freqKhz, unit = true), 52, bold = true, align = TextAlign.Center)
             Txt(r.ps ?: "", 26, accent, bold = true, align = TextAlign.Center)
             // Radio text scrolls only when wider than the panel.
@@ -87,32 +74,9 @@ fun RadioPanel(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) {
             )
             if (!r.connected) Txt(str(R.string.radio_no_data), 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         }
-
-        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
-
-        if (!tune) Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 40.dp) }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 40.dp) }
-        } else Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 36.dp) }
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 17, bold = true) }
-            RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 17, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 17, bold = true) }
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 36.dp) }
-        }
-
-        if (tune) remember(p.presets) { p.presets.chunked(4) }.forEachIndexed { row, slots ->
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
-                slots.forEachIndexed { i, f ->
-                    val slot = row * 4 + i
-                    Box(
-                        Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(12.dp))
-                            .background(if (f > 0 && f == r.freqKhz) accent else Surface2)
-                            .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
-                        Alignment.Center,
-                    ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 18, if (f > 0 && f == r.freqKhz) onAccent(accent) else if (f > 0) TextHi else TextLo, bold = true) }
-                }
-            }
         }
     }
 }

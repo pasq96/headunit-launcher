@@ -88,9 +88,12 @@ object CarTools {
         val mv = batt?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
         val intent = if (mv > 0) (if (mv > 100) mv / 1000f else mv.toFloat()) else null
         // The Android battery of a head unit is its 3 V backup cell; the car's 12 V rail, when exposed, is a power_supply node.
-        val best = listOfNotNull(intent, supplyVolts()).maxOrNull()
+        val best = listOfNotNull(intent, supplyVolts(), carVolt(ctx).read()).maxOrNull()
         return Stats(cpuTempC(), mi.availMem shr 20, mi.totalMem shr 20, best)
     }
+
+    @Volatile private var carVoltage: CarVoltage? = null
+    private fun carVolt(ctx: Context) = carVoltage ?: CarVoltage(ctx.applicationContext).also { carVoltage = it }
 
     private val supplyFiles: List<File> by lazy {
         File("/sys/class/power_supply").listFiles()?.flatMap { d ->

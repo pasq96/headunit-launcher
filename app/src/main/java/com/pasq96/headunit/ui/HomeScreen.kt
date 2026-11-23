@@ -128,7 +128,7 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
         val mm = m.onGloballyPositioned { vm.mediaRect = screenRect(it) }
         when {
             embedMedia -> AppPanel(str(R.string.panel_player), PickerKind.PLAYER, p.mediaPkg, vm, accent, mm) { vm.mediaRect }
-            p.mediaMode == MediaMode.RADIO -> RadioPanel(vm, p, accent, mm)
+            p.mediaMode == MediaMode.RADIO -> RadioPanel(vm, accent, mm)
             else -> MediaSwitch(vm, p, accent, mm)
         }
     }
@@ -237,7 +237,7 @@ private fun MediaSwitch(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modi
     LaunchedEffect(r.live) { pager.animateScrollToPage(if (r.live) 1 else 0) }
     Column(modifier, Arrangement.spacedBy(6.dp)) {
         HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), pageSpacing = 8.dp) { page ->
-            if (page == 0) MediaCard(vm, p, accent, Modifier.fillMaxSize()) else RadioPanel(vm, p, accent, Modifier.fillMaxSize())
+            if (page == 0) MediaCard(vm, p, accent, Modifier.fillMaxSize()) else RadioPanel(vm, accent, Modifier.fillMaxSize())
         }
         Row(Modifier.fillMaxWidth(), Arrangement.Center, Alignment.CenterVertically) {
             repeat(2) { i ->

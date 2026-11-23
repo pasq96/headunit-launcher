@@ -1,6 +1,8 @@
 package com.pasq96.headunit.radio
 
 import android.content.Context
+import android.content.Intent
+import android.util.Log
 import android.os.SystemClock
 import com.pasq96.headunit.embed.Embedder
 import kotlinx.coroutines.CoroutineScope
@@ -137,11 +139,23 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     private fun run(block: () -> Unit) { scope.launch { runCatching { if (!fw.ready) fw.connect(); block() } } }
     private fun code(b: Band) = when (b) { Band.FM1 -> 1; Band.FM2 -> 2; Band.AM -> 3 }
 
-    override fun step(up: Boolean, stepKhz: Int) = run { fw.call(if (up) "fineTuneNext" else "fineTunePrev") }
-    override fun seekUp() = run { fw.call("seekToNext") }
-    override fun seekDown() = run { fw.call("seekToPrev") }
-    override fun nextStation() = walk(true)
-    override fun previousStation() = walk(false)
+    /**
+     * Same entry point the stock UI/steering-wheel path uses: RadioService (exported, runs inside fmam next to its own
+     * RadioControl) maps CMD_NAME to RadioControl calls. Codes read from RadioService.cmdByMediaButton:
+     * 1 next preset, 2 prev preset, 5/6 seek next/prev, 7 auto scan, 9/16 fine tune up/down.
+     */
+    private fun svc(cmd: Int, reflect: () -> Unit = {}) = scope.launch {
+        val ok = runCatching {
+            ctx.startForegroundService(Intent(ACTION_MEDIA_BUTTON).setClassName(PKG, SERVICE).putExtra("CMD_NAME", cmd))
+        }.onFailure { Log.w(TAG, "svc($cmd): $it") }.isSuccess
+        if (!ok) runCatching { if (!fw.ready) fw.connect(); reflect() }
+    }
+
+    override fun step(up: Boolean, stepKhz: Int) { svc(if (up) 9 else 16) { fw.call(if (up) "fineTuneNext" else "fineTunePrev") } }
+    override fun seekUp() { svc(5) { fw.call("seekToNext") } }
+    override fun seekDown() { svc(6) { fw.call("seekToPrev") } }
+    override fun nextStation() { svc(1) { walk(true) } }
+    override fun previousStation() { svc(2) { walk(false) } }
 
     /** Next/previous entry of the radio's station memory; plain seek when it is empty. */
     private fun walk(next: Boolean) {
@@ -158,19 +172,26 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     }
 
     override fun setBand(band: Band) = run { fw.call("switchWaveband", code(band)) }
-    override fun toggleBand() = run { fw.call("switchWaveband", code(Band.entries[(_state.value.band.ordinal + 1) % Band.entries.size])) }
+    override fun toggleBand() { scope.launch {
+        val ok = runCatching { ctx.startForegroundService(Intent(ACTION_SWITCH_BAND).setClassName(PKG, SERVICE)) }.isSuccess
+        if (!ok) runCatching { if (!fw.ready) fw.connect(); fw.call("switchWaveband", code(Band.entries[(_state.value.band.ordinal + 1) % Band.entries.size])) }
+    } }
     override fun toggleMute() = Unit
     override fun toggleAf() = run { fw.call("switchAf") }
     override fun toggleTa() = run { fw.call("switchTa") }
     override fun toggleStereo() = run { fw.call("switchStereo") }
     override fun toggleLoc() = run { fw.call("toggleLOC") }
-    override fun autoScan() = run { fw.call("scanAS") }
+    override fun autoScan() { svc(7) { fw.call("scanAS") } }
     override fun stopSeek() = run { fw.call("stopWork") }
 
     override fun openStockApp(): Boolean = Embedder.launch(ctx, PKG)
 
     private companion object {
         const val PKG = "com.imotor.fmam"
+        const val SERVICE = "com.imotor.radiosupport.radio.RadioService"
+        const val ACTION_MEDIA_BUTTON = "com.imotor.fmam.ACTION_MEDIA_BUTTON"
+        const val ACTION_SWITCH_BAND = "com.imotor.radio.ACTION_SWITCH_BAND"
+        const val TAG = "HURadio"
         const val LOG_TAG = "VehicleHelperService"
         const val LIVE_MS = 4_000L
         const val POLL_MS = 700L

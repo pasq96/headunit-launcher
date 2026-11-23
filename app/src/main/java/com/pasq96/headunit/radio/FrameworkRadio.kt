@@ -22,8 +22,10 @@ internal class FrameworkRadio(private val ctx: Context) {
         if (mgr != null) return
         mgr = CLASSES.firstNotNullOfOrNull { n ->
             runCatching { Class.forName(n).getMethod("getInstance", Context::class.java).invoke(null, ctx) }
+                .recoverCatching { Class.forName(n, true, FrameworkJars.loader()).getMethod("getInstance", Context::class.java).invoke(null, ctx) }
                 .onFailure { Log.w(TAG, "$n.getInstance: ${it.cause ?: it}") }.getOrNull()
         }
+        mgr?.let { m -> Log.i(TAG, "manager ${m.javaClass.name}: " + m.javaClass.methods.map { it.name }.distinct().sorted().joinToString(",")) }
     }
 
     /** Invokes [name] on the manager; true when it ran without throwing. Failures are logged (first ones only). */
@@ -56,4 +58,14 @@ internal class FrameworkRadio(private val ctx: Context) {
         val NONE = emptyArray<Any?>()
         val CLASSES = listOf("com.imotor.framework.radio.RadioManager", "com.imotor.framework.radio.LocalRadioManager")
     }
+}
+
+/** Vendor framework jars outside the boot classpath: one lazy loader over every jar in the framework dirs. */
+internal object FrameworkJars {
+    private val loader by lazy {
+        val jars = listOf("/system/framework", "/system_ext/framework", "/vendor/framework", "/product/framework", "/oem/framework")
+            .flatMap { d -> java.io.File(d).listFiles { f -> f.name.endsWith(".jar") }?.toList().orEmpty() }
+        dalvik.system.PathClassLoader(jars.joinToString(":") { it.path }, FrameworkJars::class.java.classLoader)
+    }
+    fun loader(): ClassLoader = loader
 }

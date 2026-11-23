@@ -7,7 +7,7 @@ import java.lang.reflect.Method
 
 /**
  * Car battery rail from the firmware VehicleManager (BatteryManager only reports the 3.3 V backup cell).
- * Which getter carries the 12 V is not documented, so every no-arg numeric getter named like *volt*/*batt* is probed;
+ * Which getter carries the 12 V is not documented, so every no-arg numeric getter whose name contains volt or batt is probed;
  * the method list goes to logcat (tag HUVehicle) to refine the match from a real device.
  */
 internal class CarVoltage(private val ctx: Context) {

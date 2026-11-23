@@ -13,6 +13,8 @@ import android.graphics.PixelFormat
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
+import android.widget.FrameLayout
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.compose.runtime.Composable
@@ -58,7 +60,7 @@ class OverlayService : Service() {
     private lateinit var wm: WindowManager
     private val hub get() = (application as HeadUnitApp).hub
     private var dockView: ComposeView? = null
-    private var panelView: ComposeView? = null
+    private var panelView: View? = null
     private val shieldViews = HashMap<Int, Pair<ComposeView, String>>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -120,7 +122,7 @@ class OverlayService : Service() {
     private fun updatePanels(open: Boolean) {
         if (open && panelView == null) {
             // focusable window: it is the one that receives the head unit's BACK key while a panel is open
-            val nv = composeView(onBack = { hub.closeOverlays() }) { OverlayLayer(hub) }
+            val nv = backCatcher({ hub.closeOverlays() }) { OverlayLayer(hub) }
             // not layout-in-screen: panels stay inside the area left by the system bars instead of sliding under them
             val lp = params(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT, Gravity.NO_GRAVITY, inScreen = false, focusable = true)
             if (runCatching { wm.addView(nv, lp) }.isSuccess) panelView = nv
@@ -156,13 +158,16 @@ class OverlayService : Service() {
         PixelFormat.TRANSLUCENT,
     ).also { it.gravity = gravity }
 
-    private fun composeView(onBack: (() -> Unit)? = null, content: @Composable () -> Unit) = (if (onBack == null) ComposeView(this) else object : ComposeView(this) {
+    /** ComposeView is final: a panel window that must catch BACK wraps it in a FrameLayout that sees the key first. */
+    private fun backCatcher(onBack: () -> Unit, content: @Composable () -> Unit): View = object : FrameLayout(this) {
         override fun dispatchKeyEvent(event: KeyEvent): Boolean {
             if (event.keyCode != KeyEvent.KEYCODE_BACK && event.keyCode != KeyEvent.KEYCODE_ESCAPE) return super.dispatchKeyEvent(event)
             if (event.action == KeyEvent.ACTION_UP) onBack()
             return true
         }
-    }).apply {
+    }.also { it.addView(composeView(content)) }
+
+    private fun composeView(content: @Composable () -> Unit) = ComposeView(this).apply {
         setViewTreeLifecycleOwner(owner)
         setViewTreeSavedStateRegistryOwner(owner)
         setViewTreeViewModelStoreOwner(owner)

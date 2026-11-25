@@ -141,24 +141,27 @@ private fun RecentRow(e: CallEntry, accent: Color, onCall: () -> Unit) {
 
 @Composable
 private fun Keypad(number: String, accent: Color, onChange: (String) -> Unit, onCall: () -> Unit) {
-    val keys = listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#")
-    Row(Modifier.fillMaxSize().padding(top = 10.dp), Arrangement.spacedBy(28.dp)) {
-        Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.Center) {
-            Row(Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(16.dp)).background(Surface2).padding(horizontal = 20.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { Txt(number.ifEmpty { "–" }, 34, if (number.isEmpty()) TextLo else TextHi, bold = true) }
-                Box(Modifier.clickable { onChange(number.dropLast(1)) }.padding(8.dp)) { Glyph(G.PREV, TextHi, 30.dp) }
-            }
-            Box(Modifier.padding(top = 18.dp).fillMaxWidth().height(72.dp).clip(RoundedCornerShape(36.dp)).background(accent).clickable(onClick = onCall), Alignment.Center) {
-                Glyph(G.PHONE, onAccent(accent), 36.dp)
-            }
-        }
-        Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(10.dp, Alignment.CenterVertically)) {
+    val keys = listOf("1" to "", "2" to "ABC", "3" to "DEF", "4" to "GHI", "5" to "JKL", "6" to "MNO", "7" to "PQRS", "8" to "TUV", "9" to "WXYZ", "*" to "", "0" to "+", "#" to "")
+    Row(Modifier.fillMaxSize(), Arrangement.spacedBy(24.dp)) {
+        Column(Modifier.weight(1.25f).fillMaxHeight(), Arrangement.spacedBy(10.dp)) {
             keys.chunked(3).forEach { row ->
-                Row(Modifier.fillMaxWidth().height(80.dp), Arrangement.spacedBy(10.dp)) {
-                    row.forEach { k ->
-                        Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(16.dp)).background(Surface2).clickable { onChange(number + k) }, Alignment.Center) { Txt(k, 30, TextHi, bold = true) }
+                Row(Modifier.fillMaxWidth().weight(1f), Arrangement.spacedBy(10.dp)) {
+                    row.forEach { (k, sub) ->
+                        Column(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(16.dp)).background(Surface2).clickable { onChange(number + k) }, Arrangement.Center, Alignment.CenterHorizontally) {
+                            Txt(k, 30, TextHi, bold = true)
+                            if (sub.isNotEmpty()) Txt(sub, 11, TextLo)
+                        }
                     }
                 }
+            }
+        }
+        Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
+            Row(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(18.dp)).background(Surface2).padding(start = 22.dp, end = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { Txt(number.ifEmpty { str(R.string.phone_number) }, if (number.length > 12) 26 else 34, if (number.isEmpty()) TextLo else TextHi, bold = number.isNotEmpty()) }
+                Box(Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)).clickable { onChange(number.dropLast(1)) }, Alignment.Center) { Glyph(G.BACKSPACE, TextHi, 34.dp) }
+            }
+            Box(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(18.dp)).background(accent).clickable(onClick = onCall), Alignment.Center) {
+                Glyph(G.PHONE, onAccent(accent), 44.dp)
             }
         }
     }

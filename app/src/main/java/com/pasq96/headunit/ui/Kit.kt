@@ -65,7 +65,7 @@ fun Txt(
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
 enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT, CHEV_L, CHEV_R,
-    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV, PHONE }
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV, PHONE, BACKSPACE }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -180,8 +180,18 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             drawCircle(c, w * 0.07f, c0)
         }
         G.PHONE -> {
-            drawLine(c, Offset(w * 0.3f, h * 0.28f), Offset(w * 0.7f, h * 0.72f), sw * 2.2f, StrokeCap.Round)
-            drawCircle(c, w * 0.15f, Offset(w * 0.28f, h * 0.26f)); drawCircle(c, w * 0.15f, Offset(w * 0.72f, h * 0.74f))
+            // handset: a thick arc with the two pieces pointing in towards its centre
+            val cx = w * 0.82f; val cy = h * 0.18f; val r = w * 0.62f
+            drawArc(c, 100f, 70f, false, Offset(cx - r, cy - r), Size(r * 2, r * 2), style = Stroke(sw * 2.4f, cap = StrokeCap.Round))
+            for (a in listOf(170.0, 100.0)) {
+                val ex = cx + cos(Math.toRadians(a)).toFloat() * r; val ey = cy + sin(Math.toRadians(a)).toFloat() * r
+                val dx = cx - ex; val dy = cy - ey; val l = kotlin.math.sqrt(dx * dx + dy * dy)
+                drawLine(c, Offset(ex, ey), Offset(ex + dx / l * w * 0.2f, ey + dy / l * w * 0.2f), sw * 3.4f, StrokeCap.Round)
+            }
+        }
+        G.BACKSPACE -> {
+            drawPath(Path().apply { moveTo(w * 0.34f, h * 0.22f); lineTo(w * 0.88f, h * 0.22f); lineTo(w * 0.88f, h * 0.78f); lineTo(w * 0.34f, h * 0.78f); lineTo(w * 0.1f, h * 0.5f); close() }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawLine(c, Offset(w * 0.5f, h * 0.38f), Offset(w * 0.72f, h * 0.62f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.72f, h * 0.38f), Offset(w * 0.5f, h * 0.62f), sw, StrokeCap.Round)
         }
         G.BT -> drawPath(
             Path().apply { moveTo(w * 0.28f, h * 0.3f); lineTo(w * 0.72f, h * 0.7f); lineTo(w * 0.5f, h * 0.9f); lineTo(w * 0.5f, h * 0.1f); lineTo(w * 0.72f, h * 0.3f); lineTo(w * 0.28f, h * 0.7f) },

@@ -64,7 +64,7 @@ fun Txt(
 
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
-enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN,
+enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT,
     INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV }
 
 @Composable
@@ -110,6 +110,23 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
         G.PREV -> { drawPath(Path().apply { moveTo(w * 0.8f, h * 0.2f); lineTo(w * 0.3f, h * 0.5f); lineTo(w * 0.8f, h * 0.8f); close() }, c); drawRect(c, Offset(w * 0.17f, h * 0.2f), Size(w * 0.09f, h * 0.6f)) }
         G.STEP_UP -> drawPath(Path().apply { moveTo(w * 0.28f, h * 0.2f); lineTo(w * 0.78f, h * 0.5f); lineTo(w * 0.28f, h * 0.8f); close() }, c)
         G.STEP_DOWN -> drawPath(Path().apply { moveTo(w * 0.72f, h * 0.2f); lineTo(w * 0.22f, h * 0.5f); lineTo(w * 0.72f, h * 0.8f); close() }, c)
+        G.EQ -> for ((x, y) in listOf(0.22f to 0.62f, 0.5f to 0.34f, 0.78f to 0.54f)) {
+            drawLine(c, Offset(w * x, h * 0.14f), Offset(w * x, h * 0.86f), sw, StrokeCap.Round); drawCircle(c, w * 0.11f, Offset(w * x, h * y))
+        }
+        G.FOLDER -> drawPath(Path().apply {
+            moveTo(w * 0.1f, h * 0.24f); lineTo(w * 0.4f, h * 0.24f); lineTo(w * 0.5f, h * 0.36f); lineTo(w * 0.9f, h * 0.36f)
+            lineTo(w * 0.9f, h * 0.8f); lineTo(w * 0.1f, h * 0.8f); close()
+        }, c, style = Stroke(sw, join = StrokeJoin.Round))
+        G.SHUFFLE -> {
+            drawPath(Path().apply { moveTo(w * 0.12f, h * 0.3f); lineTo(w * 0.36f, h * 0.3f); lineTo(w * 0.64f, h * 0.7f); lineTo(w * 0.8f, h * 0.7f) }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(Path().apply { moveTo(w * 0.12f, h * 0.7f); lineTo(w * 0.36f, h * 0.7f); lineTo(w * 0.64f, h * 0.3f); lineTo(w * 0.8f, h * 0.3f) }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(Path().apply { moveTo(w * 0.78f, h * 0.18f); lineTo(w * 0.92f, h * 0.3f); lineTo(w * 0.78f, h * 0.42f); close() }, c)
+            drawPath(Path().apply { moveTo(w * 0.78f, h * 0.58f); lineTo(w * 0.92f, h * 0.7f); lineTo(w * 0.78f, h * 0.82f); close() }, c)
+        }
+        G.REPEAT -> {
+            drawArc(c, 20f, 300f, false, Offset(w * 0.18f, h * 0.2f), Size(w * 0.64f, h * 0.6f), style = Stroke(sw, cap = StrokeCap.Round))
+            drawPath(Path().apply { moveTo(w * 0.62f, h * 0.06f); lineTo(w * 0.84f, h * 0.2f); lineTo(w * 0.62f, h * 0.34f); close() }, c)
+        }
         G.SEEK_UP -> for (x in listOf(0.12f, 0.46f)) drawPath(Path().apply { moveTo(w * x, h * 0.22f); lineTo(w * (x + 0.4f), h * 0.5f); lineTo(w * x, h * 0.78f); close() }, c)
         G.SEEK_DOWN -> for (x in listOf(0.48f, 0.14f)) drawPath(Path().apply { moveTo(w * (x + 0.4f), h * 0.22f); lineTo(w * x, h * 0.5f); lineTo(w * (x + 0.4f), h * 0.78f); close() }, c)
         G.INFO -> { drawCircle(c, w * 0.4f, style = Stroke(sw)); drawCircle(c, w * 0.05f, Offset(w * 0.5f, h * 0.32f)); drawLine(c, Offset(w * 0.5f, h * 0.46f), Offset(w * 0.5f, h * 0.7f), sw, StrokeCap.Round) }

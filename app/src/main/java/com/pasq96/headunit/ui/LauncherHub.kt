@@ -34,6 +34,7 @@ import com.pasq96.headunit.data.Panels
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.data.SettingsStore
 import com.pasq96.headunit.data.ThemeMode
+import com.pasq96.headunit.audio.AudioFx
 import com.pasq96.headunit.media.MediaRepo
 import com.pasq96.headunit.radio.DefaultImotorRadioBridge
 import com.pasq96.headunit.radio.ImotorRadioController
@@ -71,6 +72,7 @@ class LauncherHub(private val app: Application) {
     private val lastCap = HashMap<String, Long>()
     val media = MediaRepo(app)
     val radio: ImotorRadioController = DefaultImotorRadioBridge(app)
+    val audio = AudioFx(app)
     val illumination = IlluminationMonitor(app)
     /** Button LEDs lit (true), off (false) or unknown (null). */
     val lit: StateFlow<Boolean?> = illumination.state.map { it.on }.stateIn(scope, SharingStarted.Eagerly, null)
@@ -80,6 +82,7 @@ class LauncherHub(private val app: Application) {
     var radioScreen by mutableStateOf(false)         // full radio section opened from the radio tile
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
+    var screen by mutableStateOf<NativeApp?>(null)
     var hideManager by mutableStateOf(false)          // apps in front of which the dock hides
     var manager by mutableStateOf(false)              // drawer apps: visibility + custom order
     var colorPicker by mutableStateOf(false)         // custom accent colour dialog
@@ -181,9 +184,9 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager
+    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager || screen != null
 
-    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false }
+    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false; screen = null }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

@@ -144,6 +144,7 @@ fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     if (vm.colorPicker) ColorPicker(vm, p, accent)
     if (vm.manager) DrawerManager(vm, p, apps, accent)
     if (vm.hideManager) DockHideManager(vm, p, apps, accent)
+    vm.screen?.let { NativeScreen(vm, it, accent) }
 }
 
 @Composable
@@ -156,6 +157,7 @@ private sealed interface DrawerCell {
     val key: String
     data object Tools : DrawerCell { override val key = "#tools" }
     data object Dev : DrawerCell { override val key = "#dev" }
+    class Native(val app: NativeApp) : DrawerCell { override val key get() = "#" + app.name }
     class App(val info: AppInfo) : DrawerCell { override val key get() = info.pkg }
 }
 
@@ -163,7 +165,7 @@ private sealed interface DrawerCell {
 private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
     val cell: @Composable (DrawerCell, Dp) -> Unit = { c, size ->
-        val label = when (c) { DrawerCell.Tools -> str(R.string.tools_title); DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.App -> c.info.label }
+        val label = when (c) { DrawerCell.Tools -> str(R.string.tools_title); DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.Native -> str(c.app.label); is DrawerCell.App -> c.info.label }
         Column(
             Modifier.padding(4.dp).clip(RoundedCornerShape(14.dp))
                 .androidxCombined(
@@ -172,6 +174,7 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
                         when (c) {
                             DrawerCell.Tools -> vm.tools = true
                             DrawerCell.Dev -> { vm.closeOverlays(); AppActions.developerOptions(ctx) }
+                            is DrawerCell.Native -> vm.screen = c.app
                             is DrawerCell.App -> { vm.recordUse(c.info.pkg); Embedder.launch(ctx, c.info.pkg, vm.boundsFor(c.info.pkg)) }
                         }
                     },
@@ -182,14 +185,18 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
         ) {
             if (c is DrawerCell.App) Image(c.info.icon, c.info.label, Modifier.size(size))
             else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) {
-                Glyph(if (c == DrawerCell.Tools) G.GAUGE else G.DEV, accent, size * 0.6f)
+                Glyph(when (c) { DrawerCell.Tools -> G.GAUGE; is DrawerCell.Native -> c.app.glyph; else -> G.DEV }, accent, size * 0.6f)
             }
             if (p.drawerLabels) Txt(label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(size + 24.dp).padding(top = 4.dp))
         }
     }
     // system shortcuts come first: Car Tools (no dock button anymore), then developer options when enabled
-    val shown = remember(apps, p.hidden, p.sort, p.customOrder, p.usage) { orderedApps(apps, p) }
-    val entries: List<DrawerCell> = remember(shown, p.drawerDev) { listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) } }
+    val shown = remember(apps, p.hidden, p.sort, p.customOrder, p.usage, p.hideStock) {
+        orderedApps(apps, p).let { l -> if (p.hideStock) l.filter { it.pkg.substringBefore('/') !in NATIVE_STOCK_PKGS } else l }
+    }
+    val entries: List<DrawerCell> = remember(shown, p.drawerDev) {
+        listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + NATIVE_READY.map { DrawerCell.Native(it) } + shown.map { DrawerCell.App(it) }
+    }
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
     Column(Modifier.fillMaxSize().background(Bg).padding(16.dp)) {
@@ -617,6 +624,7 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                     Chip(str(R.string.sort_custom), p.sort == AppSort.CUSTOM, accent) { vm.enableCustomOrder() }
                 }
                 ChooseRow(str(R.string.drawer_manage), str(R.string.drawer_hidden_count, p.hidden.size), accent) { vm.manager = true }
+                ToggleRow(str(R.string.hide_stock), p.hideStock, accent, hint = str(R.string.hide_stock_hint)) { vm.set(K.hideStock, it) }
                 ToggleRow(str(R.string.drawer_dev_show), p.drawerDev, accent) { vm.set(K.drawerDev, it) }
                 ToggleRow(str(R.string.drawer_labels), p.drawerLabels, accent) { vm.set(K.drawerLabels, it) }
                 ToggleRow(str(R.string.drawer_fill), p.drawerFill, accent, hint = str(R.string.drawer_fill_hint)) { vm.set(K.drawerFill, it) }

@@ -198,4 +198,16 @@
     <string name="radio_presets">Saved stations</string>
     <string name="radio_save">Save station</string>
     <string name="radio_presets_empty">No saved stations: tune and tap Save</string>
+    <string name="app_music">Music</string>
+    <string name="app_btmusic">Bluetooth music</string>
+    <string name="app_files">Files</string>
+    <string name="app_eq">Equalizer</string>
+    <string name="eq_balance">Balance</string>
+    <string name="eq_loudness">Loudness</string>
+    <string name="eq_sub">Subwoofer</string>
+    <string name="eq_reset">Reset</string>
+    <string name="eq_unavailable">Audio controls not available on this device</string>
+    <string name="bal_center">Center</string>
+    <string name="hide_stock">Hide replaced stock apps</string>
+    <string name="hide_stock_hint">The drawer hides the iMotor apps that have a built-in version</string>
 </resources>

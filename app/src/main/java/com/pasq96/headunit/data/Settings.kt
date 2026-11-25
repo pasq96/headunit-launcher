@@ -90,6 +90,7 @@ data class Prefs(
     // dock hosted in an overlay window (needs SYSTEM_ALERT_WINDOW + freeform)
     val dockOverlay: Boolean = true,
     val dockHideFull: Boolean = true,
+    val hideStock: Boolean = false,
     val dockHideApps: Set<String> = DOCK_HIDE_DEFAULT,   // packages in front of which the dock steps aside
 )
 
@@ -145,6 +146,7 @@ object K {
     val amStep = intPreferencesKey("am_step_khz")
     val dockOverlay = booleanPreferencesKey("dock_overlay")
     val dockHideFull = booleanPreferencesKey("dock_hide_full")
+    val hideStock = booleanPreferencesKey("hide_stock")
     val dockHideApps = stringPreferencesKey("dock_hide_apps")
 }
 
@@ -202,6 +204,7 @@ class SettingsStore(private val ctx: Context) {
         amStepKhz = (p[K.amStep] ?: 9).coerceIn(5, 10),
         dockOverlay = p[K.dockOverlay] ?: true,
         dockHideFull = p[K.dockHideFull] ?: true,
+        hideStock = p[K.hideStock] ?: false,
         dockHideApps = p[K.dockHideApps]?.split(',')?.filter { it.isNotEmpty() }?.toSet() ?: DOCK_HIDE_DEFAULT,
     )
 

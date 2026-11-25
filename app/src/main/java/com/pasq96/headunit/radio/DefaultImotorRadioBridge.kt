@@ -68,7 +68,8 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
             while (isActive) {
                 if (!fw.ready) runCatching { fw.connect() }
                 runCatching { poll() }
-                delay(if (_state.value.live) POLL_MS else IDLE_POLL_MS)
+                checkScanEnd()
+                delay(if (_state.value.scanning) SCAN_POLL_MS else if (_state.value.live) POLL_MS else IDLE_POLL_MS)
             }
         }
         logJob = scope.launch {
@@ -108,7 +109,11 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
 
     private fun parse(line: String) {
         if (line.contains("onStationChanged")) RE_STATION.find(line)?.let { m -> bandOf(m.groupValues[2].toInt()); apply(m.groupValues[1].toInt()); return }
-        if (line.contains("WorkInfo")) RE_WORK.find(line)?.let { m -> touch { copy(scanning = m.groupValues[1] == "1") }; return }
+        if (line.contains("WorkInfo")) RE_WORK.find(line)?.let { m ->
+            val on = m.groupValues[1] == "1"
+            if (on || SystemClock.elapsedRealtime() - scanSince > 2_000) touch { copy(scanning = on) }
+            return
+        }
         if (line.contains("FM list")) RE_LIST.find(line)?.let { m -> presets(m.groupValues[1]); return }
         if (line.contains("onRadioStatusChanged")) {
             RE_STATUS.find(line)?.let { m ->
@@ -145,7 +150,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     /** The radio's own station memory via getFreqList (no-arg or band-code arg; array, list or anything printing the numbers). */
     private fun readList() {
         val now = SystemClock.elapsedRealtime()
-        if (now - listAt < LIST_MS) return
+        if (now - listAt < (if (_state.value.scanning) 1_000L else LIST_MS)) return
         listAt = now
         val m = fw.manager() ?: return
         val g = m.javaClass.methods.firstOrNull { it.name == "getFreqList" && (it.parameterCount == 0 || (it.parameterCount == 1 && it.parameterTypes[0] == Int::class.javaPrimitiveType)) } ?: return
@@ -172,6 +177,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     /** FM comes as tens of kHz (9540 = 95.40 MHz), AM as kHz. */
     private fun apply(raw: Int) {
         val fm = raw in 6_500..10_800
+        if (_state.value.scanning && (if (fm) raw * 10 else raw) != _state.value.freqKhz) scanLastChange = SystemClock.elapsedRealtime()
         touch {
             // a new station invalidates the old RDS name until the next report
             val khz = if (fm) raw * 10 else raw
@@ -227,8 +233,22 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     override fun toggleTa() = run { fw.call("switchTa") }
     override fun toggleStereo() = run { fw.call("switchStereo") }
     override fun toggleLoc() = run { fw.call("toggleLOC") }
-    override fun autoScan() { svc(7) { fw.call("scanAS") } }
-    override fun stopSeek() = run { fw.call("stopWork") }
+    override fun autoScan() {
+        scanSince = SystemClock.elapsedRealtime(); scanLastChange = scanSince
+        touch { copy(scanning = true) }   // shown at once; the log or the idle check below ends it
+        svc(7) { fw.call("scanAS") }
+    }
+    override fun stopSeek() { touch { copy(scanning = false) }; run { fw.call("stopWork") } }
+
+    private var scanSince = 0L
+    private var scanLastChange = 0L
+
+    /** Scan over when the frequency has stopped moving for a few seconds (the log may be unreadable), or after a minute and a half. */
+    private fun checkScanEnd() {
+        if (!_state.value.scanning) return
+        val now = SystemClock.elapsedRealtime()
+        if ((now - scanLastChange > SCAN_IDLE_MS && now - scanSince > SCAN_IDLE_MS) || now - scanSince > 90_000L) touch { copy(scanning = false) }
+    }
 
     override fun openStockApp(): Boolean = Embedder.launch(ctx, PKG)
 
@@ -241,6 +261,8 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         const val LOG_TAG = "VehicleHelperService"
         const val LIVE_MS = 4_000L
         const val POLL_MS = 700L
+        const val SCAN_POLL_MS = 200L
+        const val SCAN_IDLE_MS = 4_000L
         const val IDLE_POLL_MS = 3_000L
         const val LIST_MS = 4_000L
         val RE_STATION = Regex("RadioControl: +---> onStationChanged: StationInfo \\{freq=(\\d+), band=(\\d)")

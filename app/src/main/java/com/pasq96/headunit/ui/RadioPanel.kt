@@ -1,5 +1,7 @@
 package com.pasq96.headunit.ui
 
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.offset
@@ -133,7 +135,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             )
             if (!r.connected) Txt(str(R.string.radio_no_data), 14, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
         }
-        if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
+        if (tune) TunerBar(r.freqKhz, r.band, step, accent, if (stock.isNotEmpty()) stock else p.presets.filter { it > 0 }) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
             if (tune) {
@@ -213,10 +215,11 @@ private fun RadioBtn(modifier: Modifier, primary: Boolean, accent: Color, onClic
 
 /**
  * Scrollable tuning ruler: drag left to go up in frequency, right to go down. The ruler follows the finger; the new
- * frequency is sent while dragging (throttled) and once more on release.
+ * frequency is sent while dragging (throttled) and once more on release. Without a finger it glides to every new
+ * frequency (scan, seek), and saved stations show as dots on the scale.
  */
 @Composable
-private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTune: (Int) -> Unit) {
+private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, marks: List<Int>, onTune: (Int) -> Unit) {
     val measurer = rememberTextMeasurer()
     val (lo, hi) = if (band == Band.AM) 522 to 1710 else 87_500 to 108_000
     val pxPerStep = with(LocalDensity.current) { 22.dp.toPx() }
@@ -225,7 +228,7 @@ private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTu
     val sentAt = remember { longArrayOf(0L) }
     val freq by rememberUpdatedState(freqKhz)
     val tune by rememberUpdatedState(onTune)
-    val shown = if (drag >= 0) drag else freqKhz
+    val glide by animateFloatAsState(freqKhz.toFloat(), tween(320), label = "tuner")
     val tick = TextLo
     val labelStyle = TextStyle(color = tick, fontSize = 11.sp)
 
@@ -250,13 +253,18 @@ private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTu
                 }
             },
     ) {
-        if (shown <= 0) return@Canvas
+        val anchor = if (drag >= 0) drag else freqKhz
+        if (anchor <= 0) return@Canvas
+        // value under the needle: the finger position while dragging, the gliding frequency otherwise
+        val centre = if (drag >= 0) drag + shift / pxPerStep * stepKhz else glide
         val cx = size.width / 2
-        val n = ceil(cx / pxPerStep).toInt() + 1
-        for (i in -n..n) {
-            val f = shown + i * stepKhz
+        val n = ceil(cx / pxPerStep).toInt() + 2
+        val mid = ((centre - anchor) / stepKhz).roundToInt()
+        fun xOf(f: Float) = cx + (f - centre) / stepKhz * pxPerStep
+        for (i in (mid - n)..(mid + n)) {
+            val f = anchor + i * stepKhz
             if (f < lo || f > hi) continue
-            val x = cx + i * pxPerStep - shift
+            val x = xOf(f.toFloat())
             val major = if (band == Band.AM) ((f - lo) / stepKhz) % 10 == 0 else f % 1000 == 0
             val h = if (major) size.height * 0.45f else size.height * 0.22f
             drawLine(tick, Offset(x, size.height - h), Offset(x, size.height), if (major) 3f else 2f)
@@ -265,6 +273,10 @@ private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, onTu
                 val layout = measurer.measure(text, labelStyle)
                 drawText(layout, topLeft = Offset(x - layout.size.width / 2f, 4f))
             }
+        }
+        marks.forEach { m ->
+            val x = xOf(m.toFloat())
+            if (x in 0f..size.width) drawCircle(accent, 5f, Offset(x, size.height - 8f))
         }
         drawLine(accent, Offset(cx, 0f), Offset(cx, size.height), 4f)
         drawPath(Path().apply { moveTo(cx - 8f, 0f); lineTo(cx + 8f, 0f); lineTo(cx, 12f); close() }, accent)

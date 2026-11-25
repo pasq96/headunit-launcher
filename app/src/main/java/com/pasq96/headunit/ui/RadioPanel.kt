@@ -45,11 +45,11 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.math.ceil
 
-/** 102500 → "102.5" (two decimals only when needed); AM stays in kHz. */
+/** 97500 → "97.50" (FM always shows two decimals, as the stock radio does); AM stays in kHz. */
 internal fun fmtFreq(khz: Int, unit: Boolean): String {
     if (khz <= 0) return "--.-"
     if (khz < 2000) return if (unit) "$khz kHz" else "$khz"
-    val mhz = BigDecimal(khz).movePointLeft(3).let { if (khz % 100 == 0) it.setScale(1, RoundingMode.HALF_UP) else it.setScale(2, RoundingMode.HALF_UP) }
+    val mhz = BigDecimal(khz).movePointLeft(3).setScale(2, RoundingMode.HALF_UP)
     return if (unit) "$mhz MHz" else mhz.toPlainString()
 }
 

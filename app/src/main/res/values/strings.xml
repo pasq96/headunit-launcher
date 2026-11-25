@@ -237,4 +237,16 @@
     <string name="perm_storage_all">Accesso a tutti i file</string>
     <string name="perm_storage_all_on">Accesso a tutti i file: attivo</string>
     <string name="perm_storage_adb">Se la schermata si chiude subito: da shell ADB lancia «appops set com.pasq96.headunit MANAGE_EXTERNAL_STORAGE allow», poi riapri.</string>
+    <string name="app_phone">Telefono</string>
+    <string name="phone_keypad">Tastierino</string>
+    <string name="phone_recents">Recenti</string>
+    <string name="phone_contacts">Rubrica</string>
+    <string name="phone_favorites">Preferiti</string>
+    <string name="phone_count">%1$d contatti</string>
+    <string name="phone_need_perm">Servono i permessi per chiamate, rubrica e registro chiamate.</string>
+    <string name="phone_grant">Concedi permessi</string>
+    <string name="phone_call_fail">Chiamata non avviata: telefono Bluetooth connesso?</string>
+    <string name="phone_no_recents">Nessuna chiamata recente.</string>
+    <string name="phone_no_contacts">Nessun contatto: sincronizza la rubrica dal telefono (Bluetooth, PBAP).</string>
+    <string name="phone_sync">Apri sincronizzazione</string>
 </resources>

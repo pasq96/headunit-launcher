@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.gpsTick++ }
 
+    private val phonePermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { vm.phoneTick++ }
     private val storagePermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { vm.storageTick++ }
 
     private val screenReceiver = object : BroadcastReceiver() {
@@ -118,6 +119,10 @@ class MainActivity : ComponentActivity() {
             i.removeExtra(EXTRA_REQUEST_STORAGE)
             storagePermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
         }
+        if (i.getBooleanExtra(EXTRA_REQUEST_PHONE, false)) {
+            i.removeExtra(EXTRA_REQUEST_PHONE)
+            phonePermission.launch(com.pasq96.headunit.phone.PhoneData.PERMS)
+        }
         if (i.getBooleanExtra(EXTRA_REQUEST_LOCATION, false)) {
             i.removeExtra(EXTRA_REQUEST_LOCATION)
             locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
@@ -172,6 +177,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_REQUEST_LOCATION = "request_location"
         const val EXTRA_REQUEST_STORAGE = "request_storage"
+        const val EXTRA_REQUEST_PHONE = "request_phone"
         private val TRANSPORT_KEYS = setOf(
             KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
             KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_STOP,

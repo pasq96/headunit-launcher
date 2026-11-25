@@ -95,6 +95,7 @@ class LauncherHub(private val app: Application) {
     var dockInOverlay by mutableStateOf(false)     // dock hosted by the overlay service: the in-activity dock stays blank
     var restoreTick by mutableIntStateOf(0)        // bumped on wake: HomeScreen re-places embedded windows
     var brightOverride by mutableFloatStateOf(-1f)  // panel level applied through an overlay window (system setting is ignored by this firmware)
+    var phoneTick by mutableIntStateOf(0)           // bumped when the phone permissions answer comes back
     var storageTick by mutableIntStateOf(0)        // bumped when the storage permission answer comes back
     var gpsTick by mutableIntStateOf(0)            // bumped when the location permission answer comes back
 
@@ -212,6 +213,11 @@ class LauncherHub(private val app: Application) {
     fun requestStorage() {
         closeOverlays()
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(MainActivity.EXTRA_REQUEST_STORAGE, true))
+    }
+
+    fun requestPhone() {
+        closeOverlays()
+        app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(MainActivity.EXTRA_REQUEST_PHONE, true))
     }
 
     class Shield(val slot: Int, val pkg: String, val rect: Rect)

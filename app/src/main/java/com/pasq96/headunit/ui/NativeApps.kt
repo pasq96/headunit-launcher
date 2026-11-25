@@ -10,6 +10,7 @@ enum class NativeApp(val label: Int, val glyph: G, val stock: Set<String>) {
     BT(R.string.app_btmusic, G.BT, setOf("com.imotor.btmusic")),
     FILES(R.string.app_files, G.FOLDER, setOf("com.imotor.filemanager")),
     EQ(R.string.app_eq, G.EQ, setOf("com.imotor.soundequalizer")),
+    PHONE(R.string.app_phone, G.PHONE, emptySet()),   // stock dialer stays: its InCallService draws the in-call screen
     TOOLS(R.string.tools_title, G.GAUGE, emptySet()),
 }
 
@@ -25,6 +26,7 @@ internal fun NativeScreen(vm: LauncherHub, app: NativeApp, accent: Color) {
         NativeApp.MUSIC -> MusicScreen(vm, accent)
         NativeApp.BT -> BtMusicScreen(vm, accent)
         NativeApp.FILES -> FilesScreen(vm, accent)
+        NativeApp.PHONE -> PhoneScreen(vm, accent)
         NativeApp.TOOLS -> ToolsScreen(vm, accent)
     }
 }

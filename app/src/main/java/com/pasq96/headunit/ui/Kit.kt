@@ -65,7 +65,7 @@ fun Txt(
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
 enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT, CHEV_L, CHEV_R,
-    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV }
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV, PHONE }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -178,6 +178,10 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             val c0 = Offset(w * 0.5f, h * 0.82f)
             for (r in listOf(0.22f, 0.4f, 0.58f)) drawArc(c, 225f, 90f, false, Offset(c0.x - w * r, c0.y - w * r), Size(w * r * 2, w * r * 2), style = Stroke(sw * 1.2f, cap = StrokeCap.Round))
             drawCircle(c, w * 0.07f, c0)
+        }
+        G.PHONE -> {
+            drawLine(c, Offset(w * 0.3f, h * 0.28f), Offset(w * 0.7f, h * 0.72f), sw * 2.2f, StrokeCap.Round)
+            drawCircle(c, w * 0.15f, Offset(w * 0.28f, h * 0.26f)); drawCircle(c, w * 0.15f, Offset(w * 0.72f, h * 0.74f))
         }
         G.BT -> drawPath(
             Path().apply { moveTo(w * 0.28f, h * 0.3f); lineTo(w * 0.72f, h * 0.7f); lineTo(w * 0.5f, h * 0.9f); lineTo(w * 0.5f, h * 0.1f); lineTo(w * 0.72f, h * 0.3f); lineTo(w * 0.28f, h * 0.7f) },

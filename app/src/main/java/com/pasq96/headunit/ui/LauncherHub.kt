@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.graphics.Rect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -93,6 +94,7 @@ class LauncherHub(private val app: Application) {
     var overlayInWindow by mutableStateOf(false)   // panels hosted by the overlay service (above freeform apps)
     var dockInOverlay by mutableStateOf(false)     // dock hosted by the overlay service: the in-activity dock stays blank
     var restoreTick by mutableIntStateOf(0)        // bumped on wake: HomeScreen re-places embedded windows
+    var brightOverride by mutableFloatStateOf(-1f)  // panel level applied through an overlay window (system setting is ignored by this firmware)
     var storageTick by mutableIntStateOf(0)        // bumped when the storage permission answer comes back
     var gpsTick by mutableIntStateOf(0)            // bumped when the location permission answer comes back
 

@@ -231,6 +231,7 @@
     <string name="tools_processes">Processi</string>
     <string name="tools_tasks">%1$d attivi</string>
     <string name="tools_top_na">Elenco processi non disponibile: serve l\'ADB interno (Concedi permessi).</string>
+    <string name="tools_top_adb">ADB interno non collegato: dal telefono (ADB over wifi) lancia «adb tcpip 5555», poi riapri qui.</string>
     <string name="tools_bright_fail">Il sistema non ha applicato il valore.</string>
     <string name="perm_storage_read">Permesso lettura file</string>
     <string name="perm_storage_all">Accesso a tutti i file</string>

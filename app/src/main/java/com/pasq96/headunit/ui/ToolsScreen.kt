@@ -103,7 +103,7 @@ internal fun ToolsScreen(vm: LauncherHub, accent: Color) {
                     Metric(str(R.string.stat_battery), v?.let { "%.1f V".format(it) } ?: str(R.string.stat_na), G.POWER, battery.v, accent, lo = null)
                     if (gps) Metric(str(R.string.stat_gps_speed), speed?.let { "${it.roundToInt()} km/h" } ?: str(R.string.stat_no_fix), G.NAV, spd.v, accent, lo = 0f)
                     else Card { Chip(str(R.string.gps_enable), false, accent, icon = G.NAV) { vm.requestLocation() } }
-                    ScreenCard(accent)
+                    ScreenCard(vm, accent)
                 }
                 Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), Arrangement.spacedBy(12.dp)) {
                     val t = st?.cpuC
@@ -120,7 +120,7 @@ internal fun ToolsScreen(vm: LauncherHub, accent: Color) {
                         top?.tasks?.let { Txt(str(R.string.tools_tasks, it), 14, TextLo) }
                     }
                     val rows = top?.rows.orEmpty()
-                    if (rows.isEmpty()) Txt(str(if (topTried) R.string.tools_top_na else R.string.stat_na), 14, TextLo, maxLines = 3, modifier = Modifier.padding(top = 10.dp))
+                    if (rows.isEmpty()) Txt(str(if (!topTried) R.string.stat_na else if (SysTop.failure != null) R.string.tools_top_adb else R.string.tools_top_na), 14, TextLo, maxLines = 3, modifier = Modifier.padding(top = 10.dp))
                     LazyColumn(Modifier.fillMaxSize().padding(top = 6.dp)) {
                         itemsIndexed(rows, key = { i, r -> "$i-${r.name}" }) { _, r ->
                             Row(Modifier.fillMaxWidth().height(40.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
@@ -203,13 +203,13 @@ private fun Uptime(st: Any?) {
 
 /** Brightness as a share of the panel's own range; applied while dragging (throttled) and checked after writing. */
 @Composable
-private fun ScreenCard(accent: Color) {
+private fun ScreenCard(vm: LauncherHub, accent: Color) {
     val ctx = LocalContext.current
     val canWrite = CarTools.canWriteSettings(ctx)
     var level by remember { mutableFloatStateOf(CarTools.brightnessFraction(ctx)) }
     var applied by remember { mutableFloatStateOf(level) }
     var failed by remember { mutableStateOf(false) }
-    val commit = { f: Float -> applied = f; failed = !CarTools.setBrightnessFraction(ctx, f) }
+    val commit = { f: Float -> applied = f; vm.brightOverride = f.coerceAtLeast(0.03f); failed = !CarTools.setBrightnessFraction(ctx, f) }
     Card {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Labeled(str(R.string.sec_screen), G.SUN, TextLo, 15)
@@ -221,7 +221,7 @@ private fun ScreenCard(accent: Color) {
             }
         } else {
             SimpleSlider(level, accent, { level = it; if (abs(it - applied) > 0.03f) commit(it) }, onDone = { commit(level) })
-            if (failed) Txt(str(R.string.tools_bright_fail), 12, Warn, maxLines = 2)
+            
         }
     }
 }

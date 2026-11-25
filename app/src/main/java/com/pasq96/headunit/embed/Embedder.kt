@@ -22,6 +22,15 @@ object Embedder {
         (Settings.Global.getInt(ctx.contentResolver, "enable_freeform_support", 0) == 1 ||
             ctx.packageManager.hasSystemFeature("android.software.freeform_window_management"))
 
+    /** Raises the freeform flags itself when WRITE_SECURE_SETTINGS was granted; true when anything changed. */
+    fun ensureFreeform(ctx: Context): Boolean {
+        if (freeformEnabled(ctx)) return false
+        return runCatching {
+            Settings.Global.putInt(ctx.contentResolver, "enable_freeform_support", 1)
+            Settings.Global.putInt(ctx.contentResolver, "force_resizable_activities", 1)
+        }.getOrDefault(false)
+    }
+
     fun canEmbed(ctx: Context): Boolean = freeformEnabled(ctx) || (ctx is Activity && ctx.isInMultiWindowMode)
 
     /** Starts [pkg]; with [bounds] (screen px) it is placed in that window when the device allows it. */

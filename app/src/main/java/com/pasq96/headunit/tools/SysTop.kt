@@ -9,16 +9,28 @@ class TopSnap(val load: Float?, val tasks: Int?, val rows: List<TopRow>)
 /** Process list and CPU load: apps cannot read /proc on Android 11, so `top` runs over the internal adb channel (one session kept). */
 object SysTop {
     @Volatile private var session: InternalAdb.Session? = null
+    /** Why the last snapshot failed (null while it works). */
+    @Volatile var failure: InternalAdb.Fail? = null; private set
+    private var prevStat: LongArray? = null
 
     @Synchronized
     fun snapshot(ctx: Context): TopSnap? {
         repeat(2) {
-            val s = session ?: runCatching { InternalAdb.open(ctx) }.getOrNull()?.also { session = it } ?: return null
+            val s = session ?: try { InternalAdb.open(ctx).also { session = it; failure = null } } catch (e: InternalAdb.AdbException) { failure = e.fail; return statOnly() }
             val out = runCatching { String(s.exec("top -b -n 1 -m 14")) }.getOrNull()
             if (!out.isNullOrBlank()) return parse(out)
             runCatching { s.close() }; session = null
         }
-        return null
+        return statOnly()
+    }
+
+    /** Without the adb channel only the aggregate load can work, and only if /proc/stat is readable for apps. */
+    private fun statOnly(): TopSnap? {
+        val f = runCatching { java.io.File("/proc/stat").readLines().first().split(Regex("\\s+")).drop(1).map { it.toLong() } }.getOrNull() ?: return null
+        val idle = f[3] + f.getOrElse(4) { 0 }; val total = f.sum()
+        val prev = prevStat; prevStat = longArrayOf(idle, total)
+        if (prev == null || total <= prev[1]) return null
+        return TopSnap((100f * (1f - (idle - prev[0]).toFloat() / (total - prev[1]))).coerceIn(0f, 100f), null, emptyList())
     }
 
     private val CPU_TOTAL = Regex("(\\d+)%cpu")

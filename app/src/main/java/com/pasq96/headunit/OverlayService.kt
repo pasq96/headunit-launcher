@@ -69,6 +69,7 @@ class OverlayService : Service() {
     private val hub get() = (application as HeadUnitApp).hub
     private var dockView: ComposeView? = null
     private var panelView: View? = null
+    private var brightView: View? = null
     private val shieldViews = HashMap<Int, Pair<ComposeView, String>>()
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -89,6 +90,7 @@ class OverlayService : Service() {
         scope.launch { hub.prefs.map { Triple(it.dockOverlay, it.dock, it.dockDp) }.distinctUntilChanged().collect { updateDock(hub.prefs.value) } }
         scope.launch { snapshotFlow { hub.hasOverlay() }.collect { updatePanels(it) } }
         watchForeground()
+        scope.launch { snapshotFlow { hub.brightOverride }.collect { updateBrightness(it) } }
         scope.launch { hub.prefs.map { listOf(it.embedWindows, it.panels, it.navPkg, it.mediaPkg, it.mediaMode) }.distinctUntilChanged().collect { updateShields() } }
         scope.launch { snapshotFlow { Triple(hub.homeVisible, hub.hasOverlay(), hub.navRect to hub.mediaRect) }.debounce(100).collect { updateShields() } }
     }
@@ -101,6 +103,7 @@ class OverlayService : Service() {
         runCatching { unregisterReceiver(screenRx) }
         dockView?.let { runCatching { wm.removeView(it) } }
         handleView?.let { runCatching { wm.removeView(it) } }
+        brightView?.let { runCatching { wm.removeView(it) } }
         panelView?.let { runCatching { wm.removeView(it) } }
         shieldViews.values.forEach { runCatching { wm.removeView(it.first) } }; shieldViews.clear()
         dockView = null; panelView = null
@@ -177,6 +180,18 @@ class OverlayService : Service() {
             val nv = composeView { DockLayer(hub) }
             if (runCatching { wm.addView(nv, lp) }.isSuccess) { dockView = nv; hub.dockInOverlay = true }
         } else runCatching { wm.updateViewLayout(v, lp) }
+    }
+
+    /** 1px untouchable window whose screenBrightness the system applies to the whole screen. */
+    private fun updateBrightness(level: Float) {
+        if (level < 0f) return
+        val lp = params(1, 1, Gravity.TOP or Gravity.START).also {
+            it.flags = it.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            it.screenBrightness = level.coerceIn(0.01f, 1f)
+        }
+        val v = brightView
+        if (v == null) { val nv = View(this); if (runCatching { wm.addView(nv, lp) }.isSuccess) brightView = nv }
+        else runCatching { wm.updateViewLayout(v, lp) }
     }
 
     private fun updatePanels(open: Boolean) {

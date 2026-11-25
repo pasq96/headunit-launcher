@@ -30,7 +30,29 @@ class AudioFx(ctx: Context) {
 
     private fun manager(): Any? = mgr ?: synchronized(this) {
         mgr ?: runCatching { Class.forName(AUDIO).getMethod("getInstance", Context::class.java).invoke(null, app) }
-            .onFailure { Log.w(TAG, "IMAudioManager: ${it.cause ?: it}"); err = "IMAudioManager: ${(it.cause ?: it).javaClass.simpleName} ${(it.cause ?: it).message}" }.getOrNull().also { mgr = it }
+            .onFailure { Log.w(TAG, "IMAudioManager: ${it.cause ?: it}"); err = "IMAudioManager: ${(it.cause ?: it).javaClass.simpleName} ${(it.cause ?: it).message}" }.getOrNull()?.also { fixIdentity(it) }.also { mgr = it }
+    }
+
+    /**
+     * The firmware manager may keep a system Context (package "android"), so its binder calls are rejected for our uid
+     * ("Package android does not belong to ..."): every Context / package-name field is pointed back at this app.
+     */
+    private fun fixIdentity(o: Any, depth: Int = 0) {
+        var c: Class<*>? = o.javaClass
+        while (c != null && c != Any::class.java) {
+            for (f in c.declaredFields) runCatching {
+                if (java.lang.reflect.Modifier.isStatic(f.modifiers) && f.type != Context::class.java) return@runCatching
+                f.isAccessible = true
+                val v = f.get(o)
+                if (depth == 0) Log.i(TAG, "field ${c!!.simpleName}.${f.name}:${f.type.simpleName}=${if (v is String || v is Context) v else v?.javaClass?.simpleName}")
+                when {
+                    v is String && v == "android" -> f.set(o, app.packageName)
+                    v is Context && v.packageName != app.packageName -> f.set(o, app)
+                    depth == 0 && v != null && !f.type.isPrimitive && v.javaClass.name.startsWith("com.imotor") -> fixIdentity(v, 1)
+                }
+            }
+            c = c.superclass
+        }
     }
 
     private fun call(name: String, vararg a: Any?): Any? {

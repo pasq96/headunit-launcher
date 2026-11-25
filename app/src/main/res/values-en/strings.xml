@@ -235,4 +235,6 @@
     <string name="tools_bright_fail">The system did not apply the value.</string>
     <string name="perm_storage_read">File read permission</string>
     <string name="perm_storage_all">All files access</string>
+    <string name="perm_storage_all_on">All files access: on</string>
+    <string name="perm_storage_adb">If the screen closes at once: from an adb shell run "appops set com.pasq96.headunit MANAGE_EXTERNAL_STORAGE allow", then reopen.</string>
 </resources>

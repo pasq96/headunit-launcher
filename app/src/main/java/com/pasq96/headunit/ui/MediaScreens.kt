@@ -105,13 +105,21 @@ private fun PlayButton(playing: Boolean, accent: Color, onClick: () -> Unit) =
 @Composable
 private fun StorageAccess(vm: LauncherHub, accent: Color) {
     val ctx = LocalContext.current
-    Row(Modifier.padding(top = 8.dp), Arrangement.spacedBy(8.dp)) {
-        Chip(str(R.string.perm_storage_read), false, accent) { vm.requestStorage() }
-        Chip(str(R.string.perm_storage_all), false, accent) {
-            val pkg = Uri.parse("package:${ctx.packageName}")
-            val app = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (runCatching { ctx.startActivity(app) }.isFailure) runCatching { ctx.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+    val all = remember(vm.storageTick) { android.os.Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager() }
+    var tried by remember { mutableStateOf(false) }
+    Column(Modifier.padding(top = 8.dp)) {
+        Row(Arrangement.spacedBy(8.dp)) {
+            Chip(str(R.string.perm_storage_read), false, accent) { vm.requestStorage() }
+            if (all) Chip(str(R.string.perm_storage_all_on), true, accent) { }
+            else Chip(str(R.string.perm_storage_all), false, accent) {
+                tried = true
+                val pkg = Uri.parse("package:${ctx.packageName}")
+                val app = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (runCatching { ctx.startActivity(app) }.isFailure) runCatching { ctx.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
         }
+        // this firmware's settings screen closes at once: the adb command is the way
+        if (!all && tried) Txt(str(R.string.perm_storage_adb), 13, TextLo, maxLines = 3, modifier = Modifier.padding(top = 6.dp))
     }
 }
 

@@ -144,6 +144,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
     }
+    }
     // slide-out saved stations: pull the tab (or tap it) to show, tap the radio or pull back to hide
     Row(Modifier.align(Alignment.CenterStart).offset(x = dx).fillMaxHeight().padding(vertical = 16.dp).padding(start = 8.dp)) {
         val list = if (stock.isNotEmpty()) stock.mapIndexed { i, f -> i to f } else p.presets.withIndex().filter { it.index < p.presetCount && it.value > 0 }.map { it.index to it.value }

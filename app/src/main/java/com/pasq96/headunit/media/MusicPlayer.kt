@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 
 class Track(val uri: Uri, val title: String, val artist: String, val album: String)
 
-class MusicState(
+data class MusicState(
     val queue: List<Track> = emptyList(),
     val index: Int = -1,
     val playing: Boolean = false,

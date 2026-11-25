@@ -46,6 +46,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
 import com.pasq96.headunit.R
 import com.pasq96.headunit.audio.AudioFx
@@ -97,8 +98,16 @@ internal fun EqualizerScreen(vm: LauncherHub, accent: Color) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { Txt(str(R.string.eq_unavailable), 18, TextLo, align = TextAlign.Center) }
         } else if (tab == 0) {
             Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
+                // own presets: shaped from the band frequencies, written as the custom curve
+                EqPreset.entries.forEach { pr ->
+                    Chip(str(pr.label), false, accent) {
+                        val v = IntArray(info.hzs.size) { i -> pr.gain(parseHz(info.hzs[i])).roundToInt().coerceIn(info.min, info.max) }
+                        fx.setValues(AudioFx.CUSTOM, v); load(AudioFx.CUSTOM, v)
+                    }
+                }
                 info.styles.forEachIndexed { i, s ->
-                    Chip(info.titles.getOrElse(i) { "EQ $s" }, s == style, accent) { load(s, fx.select(s)) }
+                    val t = info.titles.getOrElse(i) { "" }
+                    if (t.isNotBlank() && !t.startsWith("EQ ")) Chip(t, s == style, accent) { load(s, fx.select(s)) }
                 }
                 Chip(str(R.string.eq_reset), false, accent, icon = G.REFRESH) { fx.reset()?.let { load(AudioFx.FLAT, it) } }
             }
@@ -216,4 +225,34 @@ private fun BalancePad(fx: AudioFx, accent: Color) {
             Chip(str(R.string.bal_center), false, accent, height = 52.dp, icon = G.SPLIT) { apply(rw / 2, rh / 2) }
         }
     }
+}
+
+/** "63" -> 63 Hz, "1.6k" -> 1600 Hz. */
+private fun parseHz(t: String): Float {
+    val k = t.trim().lowercase().endsWith("k")
+    return (t.filter { it.isDigit() || it == '.' }.toFloatOrNull() ?: 1000f) * if (k) 1000f else 1f
+}
+
+/** Gain in dB for a band centre; smooth shapes over log-frequency so they fit any band layout. */
+private enum class EqPreset(val label: Int, val gain: (Float) -> Float) {
+    FLAT(R.string.eq_p_flat, { 0f }),
+    BASS(R.string.eq_p_bass, { f -> 10f * ramp(f, 250f, 60f) }),
+    TREBLE(R.string.eq_p_treble, { f -> 9f * ramp(f, 2000f, 6000f) }),
+    ROCK(R.string.eq_p_rock, { f -> 8f * ramp(f, 200f, 60f) - 4f * bump(f, 800f, 1.2f) + 7f * ramp(f, 3000f, 8000f) }),
+    POP(R.string.eq_p_pop, { f -> 4f * ramp(f, 150f, 50f) + 5f * bump(f, 1500f, 1.3f) + 3f * ramp(f, 4000f, 9000f) - 2f * bump(f, 120f, 0.5f) }),
+    VOICE(R.string.eq_p_voice, { f -> -6f * ramp(f, 200f, 60f) + 8f * bump(f, 2000f, 1.1f) - 3f * ramp(f, 8000f, 14000f) }),
+    JAZZ(R.string.eq_p_jazz, { f -> 4f * ramp(f, 150f, 60f) + 2f * bump(f, 1000f, 1.5f) + 3f * ramp(f, 5000f, 10000f) }),
+}
+
+/** 1 below [full], 0 above [zero] when full > zero (and mirrored), smooth in log-frequency. */
+private fun ramp(f: Float, from: Float, to: Float): Float {
+    val a = kotlin.math.log10(from); val b = kotlin.math.log10(to); val x = kotlin.math.log10(f.coerceAtLeast(1f))
+    val t = ((x - a) / (b - a)).coerceIn(0f, 1f)
+    return t * t * (3 - 2 * t)
+}
+
+/** Bell around [centre] with a width in octaves. */
+private fun bump(f: Float, centre: Float, octaves: Float): Float {
+    val d = (kotlin.math.log10(f.coerceAtLeast(1f)) - kotlin.math.log10(centre)) / (octaves * 0.30103f)
+    return kotlin.math.exp(-d * d).toFloat()
 }

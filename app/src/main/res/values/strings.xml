@@ -256,4 +256,11 @@
     <string name="phone_number">Numero</string>
     <string name="phone_syncing">Sincronizzazione…</string>
     <string name="phone_bt_settings">Impostazioni Bluetooth</string>
+    <string name="eq_p_flat">Piatto</string>
+    <string name="eq_p_bass">Bassi</string>
+    <string name="eq_p_treble">Alti</string>
+    <string name="eq_p_rock">Rock</string>
+    <string name="eq_p_pop">Pop</string>
+    <string name="eq_p_voice">Voce</string>
+    <string name="eq_p_jazz">Jazz</string>
 </resources>

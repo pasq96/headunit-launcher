@@ -163,7 +163,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
 
     /** The radio's own station memory, FM only (tens of kHz); the factory default list is ignored while it is all band edges. */
     private fun presets(csv: String) {
-        val l = csv.split(',').mapNotNull { it.trim().toIntOrNull() }.filter { it in 8_750..10_800 }.map { it * 10 }.distinct().take(8)
+        val l = csv.split(',').mapNotNull { it.trim().toIntOrNull() }.filter { it in 8_750..10_800 }.map { it * 10 }.distinct().take(60)
         if (l.isNotEmpty()) touch { copy(stockPresets = l) }
     }
 
@@ -213,6 +213,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     /** FM goes out in tens of kHz (9745 = 97.45 MHz), AM in kHz; index -1 = not a memory slot. */
     override fun setFrequency(khz: Int) = run {
         val b = _state.value.band
+        apply(if (b == Band.AM) khz else khz / 10)   // show it at once, the next poll confirms or corrects
         fw.call("play", code(b), if (b == Band.AM) khz else khz / 10, -1)
     }
 

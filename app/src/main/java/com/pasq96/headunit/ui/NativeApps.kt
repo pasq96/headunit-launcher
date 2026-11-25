@@ -12,8 +12,8 @@ enum class NativeApp(val label: Int, val glyph: G, val stock: Set<String>) {
     EQ(R.string.app_eq, G.EQ, setOf("com.imotor.soundequalizer")),
 }
 
-/** Implemented screens: only these get a drawer entry and hide their stock twin. */
-val NATIVE_READY: List<NativeApp> = listOf(NativeApp.EQ)
+/** Screens with a drawer entry; their stock twins are hidden when "hide stock apps" is on. */
+val NATIVE_READY: List<NativeApp> = NativeApp.entries.toList()
 
 val NATIVE_STOCK_PKGS: Set<String> = NATIVE_READY.flatMapTo(HashSet()) { it.stock }
 
@@ -21,6 +21,8 @@ val NATIVE_STOCK_PKGS: Set<String> = NATIVE_READY.flatMapTo(HashSet()) { it.stoc
 internal fun NativeScreen(vm: LauncherHub, app: NativeApp, accent: Color) {
     when (app) {
         NativeApp.EQ -> EqualizerScreen(vm, accent)
-        else -> Unit
+        NativeApp.MUSIC -> MusicScreen(vm, accent)
+        NativeApp.BT -> BtMusicScreen(vm, accent)
+        NativeApp.FILES -> FilesScreen(vm, accent)
     }
 }

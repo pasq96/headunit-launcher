@@ -212,4 +212,16 @@
     <string name="hide_stock_hint">Nel drawer spariscono le app iMotor che hanno una versione integrata</string>
     <string name="clock_today">Oggi</string>
     <string name="radio_preset_count">Stazioni memorizzate</string>
+    <string name="music_idle">Nessun brano</string>
+    <string name="music_tracks">Brani (%1$d)</string>
+    <string name="music_no_access">Nessun brano trovato. Concedi i permessi dalle impostazioni (Concedi permessi) per leggere lo storage.</string>
+    <string name="music_empty">Nessun brano trovato su memoria interna o USB.</string>
+    <string name="bt_no_access">Serve l\'accesso alle notifiche per controllare la musica Bluetooth.</string>
+    <string name="bt_idle">Nessuna riproduzione Bluetooth in corso</string>
+    <string name="bt_source">Sorgente: %1$s</string>
+    <string name="files_internal">Memoria interna</string>
+    <string name="files_usb">USB %1$d</string>
+    <string name="files_denied">Accesso negato. Concedi i permessi dalle impostazioni (Concedi permessi).</string>
+    <string name="files_empty">Cartella vuota</string>
+    <string name="grant_storage">Accesso ai file</string>
 </resources>

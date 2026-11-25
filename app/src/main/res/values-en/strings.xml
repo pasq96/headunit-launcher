@@ -212,4 +212,16 @@
     <string name="hide_stock_hint">The drawer hides the iMotor apps that have a built-in version</string>
     <string name="clock_today">Today</string>
     <string name="radio_preset_count">Saved stations</string>
+    <string name="music_idle">Nothing playing</string>
+    <string name="music_tracks">Tracks (%1$d)</string>
+    <string name="music_no_access">No tracks found. Grant permissions from settings (Grant permissions) to read storage.</string>
+    <string name="music_empty">No tracks found on internal storage or USB.</string>
+    <string name="bt_no_access">Notification access is needed to control Bluetooth music.</string>
+    <string name="bt_idle">No Bluetooth playback</string>
+    <string name="bt_source">Source: %1$s</string>
+    <string name="files_internal">Internal storage</string>
+    <string name="files_usb">USB %1$d</string>
+    <string name="files_denied">Access denied. Grant permissions from settings (Grant permissions).</string>
+    <string name="files_empty">Empty folder</string>
+    <string name="grant_storage">File access</string>
 </resources>

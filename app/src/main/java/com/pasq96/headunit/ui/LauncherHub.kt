@@ -37,6 +37,7 @@ import com.pasq96.headunit.data.SettingsStore
 import com.pasq96.headunit.data.ThemeMode
 import com.pasq96.headunit.audio.AudioFx
 import com.pasq96.headunit.media.MediaRepo
+import com.pasq96.headunit.media.MusicPlayer
 import com.pasq96.headunit.radio.DefaultImotorRadioBridge
 import com.pasq96.headunit.radio.ImotorRadioController
 import com.pasq96.headunit.system.IlluminationMonitor
@@ -74,6 +75,7 @@ class LauncherHub(private val app: Application) {
     val media = MediaRepo(app)
     val radio: ImotorRadioController = DefaultImotorRadioBridge(app)
     val audio = AudioFx(app)
+    val music = MusicPlayer(app)
     val illumination = IlluminationMonitor(app)
     /** Button LEDs lit (true), off (false) or unknown (null). */
     val lit: StateFlow<Boolean?> = illumination.state.map { it.on }.stateIn(scope, SharingStarted.Eagerly, null)

@@ -30,6 +30,7 @@ object PermissionGranter {
             Step(R.string.grant_battery, listOf("dumpsys deviceidle whitelist +$pkg", "cmd deviceidle whitelist +$pkg")),
             Step(R.string.grant_notif, listOf("pm grant $pkg android.permission.POST_NOTIFICATIONS", "echo skip")),
             Step(R.string.grant_logs, listOf("pm grant $pkg android.permission.READ_LOGS")),
+            Step(R.string.grant_storage, listOf("pm grant $pkg android.permission.READ_EXTERNAL_STORAGE && appops set $pkg MANAGE_EXTERNAL_STORAGE allow", "pm grant $pkg android.permission.READ_EXTERNAL_STORAGE")),
             Step(R.string.grant_devopts, listOf("settings put global development_settings_enabled 1")),
         )
     }

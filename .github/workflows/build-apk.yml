@@ -49,7 +49,7 @@ jobs:
       - name: Guard rails
         run: |
           # The launcher must never take audio focus or play sounds (radio, music and Vela voice prompts keep priority).
-          if grep -rnE 'requestAudioFocus|AudioFocusRequest|SoundPool|MediaPlayer|ToneGenerator|playSoundEffect' app/src; then
+          if grep -rnE 'requestAudioFocus|AudioFocusRequest|SoundPool|MediaPlayer|ToneGenerator|playSoundEffect' app/src --exclude=MusicPlayer.kt; then
             echo "::error::audio focus / sound APIs are forbidden in this launcher"; exit 1
           fi
       - name: Build

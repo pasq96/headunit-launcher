@@ -8,6 +8,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -23,7 +24,16 @@ class NowPlaying(
     val artist: String? = null,
     val art: ImageBitmap? = null,
     val playing: Boolean = false,
-)
+    val album: String? = null,
+    val pos: Long = 0,          // ms at [stamp]
+    val dur: Long = 0,
+    val speed: Float = 1f,
+    val stamp: Long = 0,        // elapsedRealtime of the position sample
+) {
+    /** Position extrapolated to now while playing. */
+    fun position(now: Long = SystemClock.elapsedRealtime()): Long =
+        if (playing) (pos + ((now - stamp) * speed).toLong()).coerceIn(0, if (dur > 0) dur else Long.MAX_VALUE) else pos
+}
 
 class MediaRepo(private val ctx: Context) {
     private val msm = ctx.getSystemService(MediaSessionManager::class.java)
@@ -61,6 +71,8 @@ class MediaRepo(private val ctx: Context) {
     fun playPause() = controller?.let { c ->
         if (c.playbackState?.state == PlaybackState.STATE_PLAYING) c.transportControls.pause() else c.transportControls.play()
     } ?: sendKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+
+    fun seekTo(ms: Long) { controller?.transportControls?.seekTo(ms) }
 
     fun next() = controller?.transportControls?.skipToNext() ?: sendKey(KeyEvent.KEYCODE_MEDIA_NEXT)
     fun previous() = controller?.transportControls?.skipToPrevious() ?: sendKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS)
@@ -105,6 +117,11 @@ class MediaRepo(private val ctx: Context) {
             artist = md?.getString(MediaMetadata.METADATA_KEY_ARTIST),
             art = artImage,
             playing = c?.playbackState?.state == PlaybackState.STATE_PLAYING,
+            album = md?.getString(MediaMetadata.METADATA_KEY_ALBUM),
+            pos = c?.playbackState?.position?.coerceAtLeast(0) ?: 0,
+            dur = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0,
+            speed = c?.playbackState?.playbackSpeed ?: 1f,
+            stamp = c?.playbackState?.lastPositionUpdateTime?.takeIf { it > 0 } ?: SystemClock.elapsedRealtime(),
         )
     }
 

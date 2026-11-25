@@ -19,6 +19,18 @@ object Previews {
         last
     }.getOrNull()
 
+    /** False when the package has no live activity (never started, or its task finished / went to stopped); events of the last 6 h. */
+    fun alive(ctx: Context, pkg: String): Boolean = runCatching {
+        val now = System.currentTimeMillis()
+        val ev = (ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).queryEvents(now - 6 * 3_600_000L, now)
+        val e = android.app.usage.UsageEvents.Event()
+        var last = 0
+        while (ev.hasNextEvent()) { ev.getNextEvent(e); if (e.packageName == pkg && e.eventType in LIFECYCLE) last = e.eventType }
+        last == 1 || last == 2   // resumed / paused; 23 = stopped
+    }.getOrDefault(true)
+
+    private val LIFECYCLE = setOf(1, 2, 23)
+
     /** Last package resumed between [from] and [to] (ms), or null when nothing was resumed in that window. */
     fun resumedBetween(ctx: Context, from: Long, to: Long): String? = runCatching {
         val ev = (ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).queryEvents(from, to)

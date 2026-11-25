@@ -66,7 +66,10 @@ import com.pasq96.headunit.data.SettingsStore
 import com.pasq96.headunit.embed.Embedder
 import com.pasq96.headunit.tools.CarTools
 import com.pasq96.headunit.tools.Links
+import com.pasq96.headunit.system.Previews
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
@@ -116,6 +119,21 @@ private fun Split(vm: LauncherHub, p: Prefs, accent: Color, modifier: Modifier) 
         delay(450)
         if (showNav) vm.navRect?.let { r -> p.navPkg?.let { Embedder.launch(ctx, it, r) } }
         if (showMedia && embedMedia) vm.mediaRect?.let { r -> Embedder.launch(ctx, p.mediaPkg, r) }
+    }
+
+    // Keeper: a hosted app that was closed from its own window (Back) or never started gets relaunched into its panel.
+    LaunchedEffect(p.navPkg, p.mediaPkg, p.embedWindows, p.panels, p.mediaMode, vm.homeVisible) {
+        if (!p.embedWindows || !vm.homeVisible || !Embedder.canEmbed(ctx)) return@LaunchedEffect
+        delay(6_000)   // the placement above goes first
+        while (true) {
+            val nav = if (showNav) p.navPkg else null
+            val med = if (showMedia && embedMedia) p.mediaPkg else null
+            val dead = withContext(Dispatchers.IO) { listOfNotNull(nav, med).filterNot { Previews.alive(ctx, it) } }
+            if (!dragging && !vm.hasOverlay()) dead.forEach { pkg ->
+                (if (pkg == nav) vm.navRect else vm.mediaRect)?.let { Embedder.launch(ctx, pkg, it) }
+            }
+            delay(5_000)
+        }
     }
 
     val navSlot = @Composable { m: Modifier ->

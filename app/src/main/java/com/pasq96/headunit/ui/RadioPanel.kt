@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -53,7 +54,6 @@ internal fun fmtFreq(khz: Int, unit: Boolean): String {
     return if (unit) "$mhz MHz" else mhz.toPlainString()
 }
 
-private fun stepLabel(khz: Int) = if (khz < 100 && khz != 50) "$khz kHz" else BigDecimal(khz).movePointLeft(3).stripTrailingZeros().toPlainString()
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -90,9 +90,9 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     val tune = vm.radio.canTune
     val am = r.band == Band.AM
     val step = if (am) p.amStepKhz else p.fmStepKhz
-    val label = stepLabel(step)
     val close = { vm.radioScreen = false }
-    Column(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(14.dp)) {
+    Row(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
             if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
             else Chip(if (am) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
@@ -116,23 +116,34 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             if (!r.connected) Txt(str(R.string.radio_no_data), 14, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
         }
         if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
-        if (tune && r.stockPresets.isNotEmpty()) Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(8.dp)) {
-            r.stockPresets.take(8).forEach { f ->
-                val on = f == r.freqKhz
-                Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2).clickable { vm.radio.setFrequency(f) }, Alignment.Center) {
-                    Txt(fmtFreq(f, unit = false), 18, if (on) onAccent(accent) else TextHi, bold = true)
-                }
-            }
-        }
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
             if (tune) {
-                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 20, bold = true) }
+                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Glyph(G.STEP_DOWN, TextHi, 40.dp) }
                 RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
-                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 20, bold = true) }
+                RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Glyph(G.STEP_UP, TextHi, 40.dp) }
             }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
+    }
+    PresetColumn(vm, p.presets, r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight())
+    }
+}
+
+/** Own station memory (8 slots, DataStore): tap recalls, long press stores the tuned frequency or clears the slot. */
+@Composable
+private fun PresetColumn(vm: LauncherHub, slots: List<Int>, tuned: Int, accent: Color, modifier: Modifier) {
+    Column(modifier, Arrangement.spacedBy(6.dp)) {
+        Txt(str(R.string.radio_presets), 15, TextLo, bold = true)
+        slots.forEachIndexed { slot, f ->
+            val on = f > 0 && f == tuned
+            Box(
+                Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2)
+                    .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
+                Alignment.Center,
+            ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 20, if (on) onAccent(accent) else if (f > 0) TextHi else TextLo, bold = true) }
+        }
+        Txt(str(R.string.radio_hint), 12, TextLo, maxLines = 2)
     }
 }
 

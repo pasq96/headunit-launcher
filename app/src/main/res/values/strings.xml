@@ -224,4 +224,12 @@
     <string name="files_denied">Accesso negato. Concedi i permessi dalle impostazioni (Concedi permessi).</string>
     <string name="files_empty">Cartella vuota</string>
     <string name="grant_storage">Accesso ai file</string>
+    <string name="tools_cpu_load">Carico CPU</string>
+    <string name="tools_ram">RAM</string>
+    <string name="tools_storage">Memoria interna</string>
+    <string name="tools_uptime">Acceso da</string>
+    <string name="tools_processes">Processi</string>
+    <string name="tools_tasks">%1$d attivi</string>
+    <string name="tools_top_na">Elenco processi non disponibile: serve l\'ADB interno (Concedi permessi).</string>
+    <string name="tools_bright_fail">Il sistema non ha applicato il valore.</string>
 </resources>

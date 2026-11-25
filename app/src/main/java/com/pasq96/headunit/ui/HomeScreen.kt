@@ -324,7 +324,7 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
     val buttons: @Composable () -> Unit = {
         GlyphButton(when (p.panels) { Panels.BOTH -> G.SPLIT; Panels.NAV -> G.SOLO_L; Panels.MEDIA -> G.SOLO_R }, TextHi, { vm.cyclePanels() })
         GlyphButton(G.GEAR, TextHi, { vm.settings = !vm.settings; vm.drawer = false })
-        GlyphButton(G.GRID, accent, { vm.drawer = !vm.drawer; vm.tools = false }, glyph = 36.dp)
+        GlyphButton(G.GRID, accent, { vm.drawer = !vm.drawer }, glyph = 36.dp)
     }
     if (vertical) {
         Column(mod.padding(vertical = 8.dp), Arrangement.spacedBy(6.dp), Alignment.CenterHorizontally) {

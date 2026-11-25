@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
+import android.util.Log
 import android.os.PowerManager
 import android.content.IntentFilter
 import android.content.BroadcastReceiver
@@ -144,7 +145,7 @@ class OverlayService : Service() {
                 since = now - 500
                 hide = cur in p.dockHideApps && now > peekUntil
             }
-            if (hide != dockHidden) { dockHidden = hide; updateDock(p) }
+            if (hide != dockHidden) { Log.i("HUDock", "fg=$cur hide=$hide"); dockHidden = hide; updateDock(p) }
             delay(1_500)
         }
     }

@@ -18,6 +18,8 @@ import android.os.BatteryManager
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
+import android.content.res.Resources
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
@@ -32,6 +34,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,20 +70,34 @@ object CarTools {
         val lm = ctx.getSystemService(LocationManager::class.java)
         val granted = ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!granted) { trySend(null); awaitClose { }; return@callbackFlow }
+        val lastAt = AtomicLong(0)
+        var prev: Location? = null
         val l = object : LocationListener {
             override fun onLocationChanged(loc: Location) {
-                val fresh = SystemClock.elapsedRealtimeNanos() - loc.elapsedRealtimeNanos < 5_000_000_000L
-                trySend(if (loc.hasSpeed() && fresh) loc.speed * 3.6f else null)
+                lastAt.set(SystemClock.elapsedRealtime())
+                // freshness is judged by arrival, not by the fix timestamp: head units often have a wrong clock or a zero timestamp
+                val p = prev; prev = Location(loc)
+                val v = when {
+                    loc.hasSpeed() -> loc.speed
+                    p != null && loc.time > p.time -> p.distanceTo(loc) / ((loc.time - p.time) / 1000f)   // no speed field: derive it from two fixes
+                    else -> null
+                }
+                trySend(v?.times(3.6f))
             }
             @Deprecated("legacy") override fun onStatusChanged(p: String?, s: Int, e: android.os.Bundle?) {}
             override fun onProviderEnabled(p: String) {}
             override fun onProviderDisabled(p: String) { trySend(null) }
         }
         trySend(null)
+        Log.i(GPS_TAG, "gps provider enabled=" + runCatching { lm.isProviderEnabled(LocationManager.GPS_PROVIDER) }.getOrNull())
         // registered even while GPS is off: the provider can come on later and onLocationChanged starts flowing
         runCatching { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1_000L, 0f, l, Looper.getMainLooper()) }
+            .onFailure { Log.w(GPS_TAG, "requestLocationUpdates: $it") }
+        launch { while (true) { delay(2_000); if (lastAt.get() != 0L && SystemClock.elapsedRealtime() - lastAt.get() > 6_000) trySend(null) } }
         awaitClose { runCatching { lm.removeUpdates(l) } }
     }
+
+    private const val GPS_TAG = "HUGps"
 
     // ---- readers ----
 
@@ -134,12 +153,48 @@ object CarTools {
 
     fun brightness(ctx: Context): Int = runCatching { Settings.System.getInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS) }.getOrDefault(128)
 
+    /** Value range of the panel on this firmware (framework config), the classic 1..255 when it does not say. */
+    fun brightnessRange(): IntRange {
+        val r = Resources.getSystem()
+        fun cfg(n: String, d: Int) = r.getIdentifier(n, "integer", "android").takeIf { it != 0 }?.let { runCatching { r.getInteger(it) }.getOrNull() } ?: d
+        val lo = cfg("config_screenBrightnessSettingMinimum", 1); val hi = cfg("config_screenBrightnessSettingMaximum", 255)
+        return if (hi > lo) lo..hi else 1..255
+    }
+
+    fun brightnessFraction(ctx: Context): Float = brightnessRange().let { ((brightness(ctx) - it.first).toFloat() / (it.last - it.first)).coerceIn(0f, 1f) }
+
+    /** Sets the level as a 0..1 fraction of the panel range; false when the system did not take the value. */
+    fun setBrightnessFraction(ctx: Context, f: Float): Boolean {
+        val r = brightnessRange()
+        val v = r.first + (f.coerceIn(0f, 1f) * (r.last - r.first)).roundToInt()
+        setBrightness(ctx, v)
+        return brightness(ctx) == v
+    }
+
     fun setBrightness(ctx: Context, v: Int) {
         if (!canWriteSettings(ctx)) return
         val cr = ctx.contentResolver
         if (Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, 0) != Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
             Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
-        Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS, v.coerceIn(1, 255))
+        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, v.coerceIn(brightnessRange()))
+    }
+
+    /** One-off log (tag HUScreen) of what could drive the backlight on this unit: system value, sysfs nodes, firmware manager methods. */
+    fun probeScreen(ctx: Context) {
+        val t = "HUScreen"
+        runCatching {
+            Log.i(t, "system=${brightness(ctx)} mode=${Settings.System.getInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS_MODE, -1)} range=${brightnessRange()} canWrite=${canWriteSettings(ctx)}")
+            File("/sys/class/backlight").listFiles()?.forEach { d ->
+                fun rd(n: String) = runCatching { File(d, n).readText().trim() }.getOrNull()
+                Log.i(t, "backlight ${d.name} ${rd("brightness")}/${rd("max_brightness")}")
+            }
+            listOf("com.imotor.framework.hardware.IMHardwareManager", "android.mcu.IMcuManager").forEach { cn ->
+                runCatching {
+                    val ms = Class.forName(cn).methods.map { it.name }.distinct().filter { Regex("(?i)bright|backlight|lcd|screen|dim").containsMatchIn(it) }
+                    Log.i(t, "$cn -> $ms")
+                }.onFailure { Log.i(t, "$cn: ${it.javaClass.simpleName}") }
+            }
+        }
     }
 
     private var overlay: View? = null

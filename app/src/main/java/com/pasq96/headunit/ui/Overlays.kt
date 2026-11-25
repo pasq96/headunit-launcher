@@ -1,9 +1,7 @@
 package com.pasq96.headunit.ui
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
@@ -67,7 +65,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -95,7 +92,6 @@ import com.pasq96.headunit.system.InternalAdb
 import com.pasq96.headunit.system.PermissionGranter
 import com.pasq96.headunit.tools.CarTools
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -137,7 +133,6 @@ fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     val apps by vm.apps.collectAsStateWithLifecycle()
     val accent = Color(p.accentArgb)
     if (vm.drawer) Drawer(vm, p, apps, accent)
-    if (vm.tools) ToolsPanel(vm, p, accent)
     if (vm.radioScreen) RadioScreen(vm, accent)
     if (vm.settings) SettingsPanel(vm, p, apps, accent)
     vm.menuApp?.let { AppMenu(vm, p, it, accent) }
@@ -157,7 +152,6 @@ private fun Dim(onDismiss: () -> Unit, content: @Composable BoxScope.() -> Unit)
 
 private sealed interface DrawerCell {
     val key: String
-    data object Tools : DrawerCell { override val key = "#tools" }
     data object Dev : DrawerCell { override val key = "#dev" }
     class Native(val app: NativeApp) : DrawerCell { override val key get() = "#" + app.name }
     class App(val info: AppInfo) : DrawerCell { override val key get() = info.pkg }
@@ -167,14 +161,13 @@ private sealed interface DrawerCell {
 private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
     val ctx = LocalContext.current
     val cell: @Composable (DrawerCell, Dp) -> Unit = { c, size ->
-        val label = when (c) { DrawerCell.Tools -> str(R.string.tools_title); DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.Native -> str(c.app.label); is DrawerCell.App -> c.info.label }
+        val label = when (c) { DrawerCell.Dev -> str(R.string.drawer_dev); is DrawerCell.Native -> str(c.app.label); is DrawerCell.App -> c.info.label }
         Column(
             Modifier.padding(4.dp).clip(RoundedCornerShape(14.dp))
                 .androidxCombined(
                     onClick = {
                         vm.drawer = false
                         when (c) {
-                            DrawerCell.Tools -> vm.tools = true
                             DrawerCell.Dev -> { vm.closeOverlays(); AppActions.developerOptions(ctx) }
                             is DrawerCell.Native -> vm.screen = c.app
                             is DrawerCell.App -> { vm.recordUse(c.info.pkg); Embedder.launch(ctx, c.info.pkg, vm.boundsFor(c.info.pkg)) }
@@ -187,7 +180,7 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
         ) {
             if (c is DrawerCell.App) Image(c.info.icon, c.info.label, Modifier.size(size))
             else Box(Modifier.size(size).clip(RoundedCornerShape(size / 4)).background(Surface2), Alignment.Center) {
-                Glyph(when (c) { DrawerCell.Tools -> G.GAUGE; is DrawerCell.Native -> c.app.glyph; else -> G.DEV }, accent, size * 0.6f)
+                Glyph(when (c) { is DrawerCell.Native -> c.app.glyph; else -> G.DEV }, accent, size * 0.6f)
             }
             if (p.drawerLabels) Txt(label, 14, maxLines = 2, align = TextAlign.Center, modifier = Modifier.width(size + 24.dp).padding(top = 4.dp))
         }
@@ -197,7 +190,7 @@ private fun Drawer(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color
         orderedApps(apps, p).let { l -> if (p.hideStock) l.filter { it.pkg.substringBefore('/') !in NATIVE_STOCK_PKGS } else l }
     }
     val entries: List<DrawerCell> = remember(shown, p.drawerDev) {
-        listOf(DrawerCell.Tools) + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + NATIVE_READY.map { DrawerCell.Native(it) } + shown.map { DrawerCell.App(it) }
+        NATIVE_READY.map { DrawerCell.Native(it) } + (if (p.drawerDev) listOf(DrawerCell.Dev) else emptyList()) + shown.map { DrawerCell.App(it) }
     }
     val cells = if (p.drawerSpan == 0) GridCells.Adaptive(p.drawerIconDp.dp + 48.dp) else GridCells.Fixed(p.drawerSpan)
     val pad = PaddingValues(8.dp)
@@ -467,38 +460,6 @@ private fun ColorPicker(vm: LauncherHub, p: Prefs, accent: Color) {
 private const val MIN_V = 0.35f
 
 // ---- quick tools ----
-
-@Composable
-private fun ToolsPanel(vm: LauncherHub, p: Prefs, accent: Color) {
-    val ctx = LocalContext.current
-    val gps = remember(vm.gpsTick) { ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED }
-    val st by remember(p.toolsIntervalSec) { CarTools.stats(ctx, p.toolsIntervalSec * 1000L) }.collectAsStateWithLifecycle(null)
-    val speed by remember(gps) { if (gps) CarTools.speedKmh(ctx) else flowOf(null) }.collectAsStateWithLifecycle(null)
-    var bright by remember { mutableFloatStateOf(CarTools.brightness(ctx) / 255f) }
-
-    Dim({ vm.tools = false }) {
-        Column(
-            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(480.dp).background(Surface).pointerInput(Unit) { detectTapGestures { } }
-                .verticalScroll(rememberScrollState()).padding(20.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Txt(str(R.string.tools_title), 24, bold = true); GlyphButton(G.CLOSE, TextHi, { vm.tools = false })
-            }
-            Section(str(R.string.sec_system), accent, G.GAUGE) {
-                val temp = st?.cpuC
-                Stat(str(R.string.stat_cpu_temp), temp?.let { "${it.roundToInt()} °C" } ?: str(R.string.stat_na), if (temp != null && temp >= p.tempWarnC) Warn else TextHi, icon = G.GAUGE)
-                Stat(str(R.string.stat_ram_free), st?.let { "${it.ramFreeMb} / ${it.ramTotalMb} MB" } ?: "…", icon = G.DATA)
-                Stat(str(R.string.stat_battery), st?.battV?.let { if (it < 6f) "%.1f V (int.)".format(it) else "%.1f V".format(it) } ?: str(R.string.stat_na), icon = G.POWER)
-                if (gps) Stat(str(R.string.stat_gps_speed), speed?.let { "${it.roundToInt()} km/h" } ?: str(R.string.stat_no_fix), icon = G.NAV)
-                else Chip(str(R.string.gps_enable), false, accent, icon = G.NAV) { vm.requestLocation() }
-            }
-            Section(str(R.string.sec_screen), accent, G.SUN) {
-                if (!CarTools.canWriteSettings(ctx)) Chip(str(R.string.write_grant), false, accent, icon = G.SUN) { vm.closeOverlays(); openWriteSettings(ctx) }
-                else SimpleSlider(bright, accent, { bright = it }, onDone = { CarTools.setBrightness(ctx, (bright * 255).roundToInt()) })
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

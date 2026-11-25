@@ -81,7 +81,6 @@ class LauncherHub(private val app: Application) {
     val lit: StateFlow<Boolean?> = illumination.state.map { it.on }.stateIn(scope, SharingStarted.Eagerly, null)
 
     var drawer by mutableStateOf(false)
-    var tools by mutableStateOf(false)
     var radioScreen by mutableStateOf(false)         // full radio section opened from the radio tile
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
@@ -188,9 +187,9 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager || screen != null || clockScreen
+    fun hasOverlay() = drawer || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager || screen != null || clockScreen
 
-    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false; screen = null; clockScreen = false }
+    fun closeOverlays() { drawer = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false; screen = null; clockScreen = false }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

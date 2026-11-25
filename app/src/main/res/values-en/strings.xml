@@ -231,7 +231,7 @@
     <string name="tools_processes">Processes</string>
     <string name="tools_tasks">%1$d running</string>
     <string name="tools_top_na">Process list unavailable: needs the internal ADB (Grant permissions).</string>
-    <string name="tools_top_adb">Internal ADB not connected: from the phone (ADB over wifi) run "adb tcpip 5555", then reopen here.</string>
+    <string name="tools_top_adb">Process list unavailable: grant DUMP and PACKAGE_USAGE_STATS from an adb shell.</string>
     <string name="tools_bright_fail">The system did not apply the value.</string>
     <string name="perm_storage_read">File read permission</string>
     <string name="perm_storage_all">All files access</string>

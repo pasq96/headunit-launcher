@@ -126,7 +126,7 @@ internal fun ToolsScreen(vm: LauncherHub, accent: Color) {
                             Row(Modifier.fillMaxWidth().height(40.dp), Arrangement.spacedBy(8.dp), Alignment.CenterVertically) {
                                 Box(Modifier.weight(1f)) { Txt(r.name, 15, TextHi) }
                                 Txt("%.0f%%".format(r.cpu), 14, if (r.cpu >= 50f) Warn else TextLo, bold = true)
-                                Txt("${r.ramMb} MB", 14, TextLo)
+                                if (r.ramMb > 0) Txt("${r.ramMb} MB", 14, TextLo)
                             }
                         }
                     }

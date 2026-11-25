@@ -15,6 +15,7 @@ object SysTop {
 
     @Synchronized
     fun snapshot(ctx: Context): TopSnap? {
+        cpuinfo()?.let { failure = null; return it }
         repeat(2) {
             val s = session ?: try { InternalAdb.open(ctx).also { session = it; failure = null } } catch (e: InternalAdb.AdbException) { failure = e.fail; return statOnly() }
             val out = runCatching { String(s.exec("top -b -n 1 -m 14")) }.getOrNull()
@@ -23,6 +24,18 @@ object SysTop {
         }
         return statOnly()
     }
+
+    private val CI_ROW = Regex("^\\s*([\\d.]+)% (\\d+)/([^:]+): ")
+    private val CI_TOTAL = Regex("([\\d.]+)% TOTAL")
+
+    /** `dumpsys cpuinfo` runs from the app itself once DUMP + PACKAGE_USAGE_STATS were granted (pm grant): per-process CPU, no adb session. */
+    private fun cpuinfo(): TopSnap? = runCatching {
+        val p = ProcessBuilder("dumpsys", "cpuinfo").redirectErrorStream(true).start()
+        val out = p.inputStream.bufferedReader().readText(); p.waitFor()
+        val total = CI_TOTAL.find(out)?.groupValues?.get(1)?.toFloatOrNull() ?: return null
+        val rows = out.lineSequence().mapNotNull { l -> CI_ROW.find(l)?.let { TopRow(it.groupValues[3].trim(), it.groupValues[1].toFloat(), 0) } }.take(14).toList()
+        TopSnap(total.coerceIn(0f, 100f), null, rows)
+    }.getOrNull()
 
     /** Without the adb channel only the aggregate load can work, and only if /proc/stat is readable for apps. */
     private fun statOnly(): TopSnap? {

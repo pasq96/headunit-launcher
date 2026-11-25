@@ -59,6 +59,11 @@ class AudioFx(ctx: Context) {
         val o = manager() ?: return null
         return runCatching {
             o.javaClass.methods.first { it.name == name && it.parameterCount == a.size }.invoke(o, *a)
+        }.recoverCatching {
+            // the service applies the values first and only then broadcasts ACTION_EQ_CHANGED as the system context while
+            // still running under our uid, which AppOps rejects: the DSP already has the change, so this one is not a failure
+            if (((it.cause ?: it).message ?: "").contains("does not belong to")) { if (logged++ < 5) Log.i(TAG, "$name applied, broadcast refused: ${(it.cause ?: it).message}"); Unit }
+            else throw it
         }.onFailure { if (logged++ < 20) Log.w(TAG, "$name: ${it.cause ?: it}"); err = "$name: ${(it.cause ?: it).javaClass.simpleName} ${(it.cause ?: it).message}" }
             .onSuccess { err = null }.getOrNull()
     }

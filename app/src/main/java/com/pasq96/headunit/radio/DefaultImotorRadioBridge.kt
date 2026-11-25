@@ -1,8 +1,11 @@
 package com.pasq96.headunit.radio
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.util.Log
+import androidx.core.content.ContextCompat
 import android.os.SystemClock
 import com.pasq96.headunit.embed.Embedder
 import kotlinx.coroutines.CoroutineScope
@@ -35,8 +38,32 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     @Volatile private var proc: Process? = null
     @Volatile private var lastSeen = 0L
 
+    /** The stock RadioService broadcasts this on every station/RDS change (RadioUtil.sendMediaInfo): no READ_LOGS needed. */
+    private val mediaRx = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) { runCatching { media(i) } }
+    }
+
+    private fun media(i: Intent) {
+        val e = i.extras ?: return
+        Log.i(TAG, "MEDIA_UPDATE " + e.keySet().joinToString { "$it=${e.get(it)}" })
+        val num = Regex("\\d+(\\.\\d+)?")
+        val raw = listOf("Media_Title", "Media_Artist", "Media_Album").firstNotNullOfOrNull { k ->
+            val v = e.getString(k)?.trim().orEmpty()
+            val d = num.find(v)?.value?.toDoubleOrNull() ?: return@firstNotNullOfOrNull null
+            when {
+                v.contains('.') && d in 64.0..110.0 -> Math.round(d * 100).toInt()   // "97.45" MHz -> 9745
+                d in 6_500.0..10_800.0 || d in 530.0..1_710.0 -> d.toInt()           // raw FM (10 kHz) / AM (kHz)
+                else -> null
+            }
+        }
+        e.getString("Media_Album")?.trim()?.toIntOrNull()?.let { bandOf(it) }
+        raw?.let { apply(it) }
+        e.getString("Media_PsName")?.trim()?.takeIf { it.isNotEmpty() }?.let { n -> touch { copy(ps = n) } }
+    }
+
     override fun start() {
         if (pollJob?.isActive == true) return
+        runCatching { ContextCompat.registerReceiver(ctx, mediaRx, IntentFilter("com.imotor.intent.MEDIA_UPDATE"), ContextCompat.RECEIVER_EXPORTED) }
         pollJob = scope.launch {
             while (isActive) {
                 if (!fw.ready) runCatching { fw.connect() }
@@ -63,6 +90,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
     }
 
     override fun stop() {
+        runCatching { ctx.unregisterReceiver(mediaRx) }
         pollJob?.cancel(); pollJob = null
         logJob?.cancel(); logJob = null
         watchdog?.cancel(); watchdog = null

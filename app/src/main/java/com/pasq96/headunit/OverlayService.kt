@@ -222,12 +222,17 @@ class OverlayService : Service() {
             if (event.action == KeyEvent.ACTION_UP) onBack()
             return true
         }
-    }.also { it.addView(composeView(content)) }
+    }.also { owned(it); it.addView(composeView(content)) }
+
+    /** Compose resolves its lifecycle from the window's root view, so a wrapper root needs the owners too. */
+    private fun owned(v: View) {
+        v.setViewTreeLifecycleOwner(owner)
+        v.setViewTreeSavedStateRegistryOwner(owner)
+        v.setViewTreeViewModelStoreOwner(owner)
+    }
 
     private fun composeView(content: @Composable () -> Unit) = ComposeView(this).apply {
-        setViewTreeLifecycleOwner(owner)
-        setViewTreeSavedStateRegistryOwner(owner)
-        setViewTreeViewModelStoreOwner(owner)
+        owned(this)
         isSoundEffectsEnabled = false
         setContent(content)
     }

@@ -75,8 +75,8 @@ fun RadioPanel(vm: LauncherHub, accent: Color, modifier: Modifier) {
             if (!r.connected) Txt(str(R.string.radio_no_data), 12, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
         }
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 40.dp) }
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 40.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 40.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 40.dp) }
         }
     }
 }

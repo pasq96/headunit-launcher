@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private enum class PhoneTab(val label: Int) { KEYPAD(R.string.phone_keypad), CONTACTS(R.string.phone_contacts), RECENTS(R.string.phone_recents), FAVORITES(R.string.phone_favorites) }
+private enum class PhoneTab(val label: Int, val icon: G) { KEYPAD(R.string.phone_keypad, G.GRID), CONTACTS(R.string.phone_contacts, G.PERSON), RECENTS(R.string.phone_recents, G.CLOCK), FAVORITES(R.string.phone_favorites, G.HEART) }
 
 /** Bluetooth phone: keypad, call log and contacts (PBAP sync) in one full-screen app; calls ride on HFP through Telecom. */
 @Composable
@@ -71,13 +71,22 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
       Row(Modifier.fillMaxSize().padding(top = 8.dp), Arrangement.spacedBy(20.dp)) {
         Column(Modifier.width(170.dp).fillMaxHeight(), Arrangement.spacedBy(8.dp)) {
             PhoneTab.entries.forEach { t ->
-                Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(if (tab == t) accent else Surface2).clickable { tab = t }, Alignment.Center) {
-                    Txt(str(t.label), 17, if (tab == t) onAccent(accent) else TextHi, bold = tab == t)
+                val fg = if (tab == t) onAccent(accent) else TextHi
+                Row(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(if (tab == t) accent else Surface2).clickable { tab = t }.padding(horizontal = 16.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+                    Glyph(t.icon, fg, 26.dp)
+                    Txt(str(t.label), 17, fg, bold = tab == t)
                 }
             }
-            Txt(str(if (bt) R.string.phone_bt_on else R.string.phone_bt_off), 13, if (bt) accent else Warn, maxLines = 2, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
         }
-        Column(Modifier.weight(1f).fillMaxHeight()) {
+        Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(10.dp)) {
+        // phone link state: loud when missing, with a shortcut to the Bluetooth settings
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (bt) accent.copy(alpha = 0.16f) else Warn.copy(alpha = 0.22f)).padding(horizontal = 16.dp, vertical = 10.dp), Arrangement.spacedBy(12.dp), Alignment.CenterVertically) {
+            Glyph(G.BT, if (bt) accent else Warn, 28.dp)
+            Box(Modifier.weight(1f)) { Txt(str(if (bt) R.string.phone_bt_on else R.string.phone_bt_off), 18, if (bt) accent else Warn, bold = true) }
+            if (!bt) Chip(str(R.string.phone_bt_settings), false, accent, height = 40.dp) {
+                runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+            }
+        }
         if (!ok) {
             Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                 Txt(str(R.string.phone_need_perm), 17, TextLo, align = TextAlign.Center, maxLines = 3, modifier = Modifier.padding(bottom = 16.dp))
@@ -85,7 +94,7 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
             }
             return@Column
         }
-        if (failed) Txt(str(R.string.phone_call_fail), 14, Warn, modifier = Modifier.padding(top = 6.dp))
+        if (failed) Txt(str(R.string.phone_call_fail), 14, Warn)
         when (tab) {
             PhoneTab.KEYPAD -> Keypad(number, accent, { number = it }, { call(number) })
             PhoneTab.RECENTS -> if (recents.isEmpty()) Empty(str(R.string.phone_no_recents)) else LazyColumn(Modifier.fillMaxSize().padding(top = 10.dp)) {
@@ -165,12 +174,12 @@ private fun Keypad(number: String, accent: Color, onChange: (String) -> Unit, on
             }
         }
         Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(16.dp, Alignment.CenterVertically)) {
-            Row(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(18.dp)).background(Surface2).padding(start = 22.dp, end = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(18.dp)).background(Surface2).padding(start = 22.dp, end = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { Txt(number.ifEmpty { str(R.string.phone_number) }, if (number.length > 12) 26 else 34, if (number.isEmpty()) TextLo else TextHi, bold = number.isNotEmpty()) }
                 Box(Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)).clickable { onChange(number.dropLast(1)) }, Alignment.Center) { Glyph(G.BACKSPACE, TextHi, 34.dp) }
             }
-            Box(Modifier.fillMaxWidth().height(88.dp).clip(RoundedCornerShape(18.dp)).background(accent).clickable(onClick = onCall), Alignment.Center) {
-                Glyph(G.PHONE, onAccent(accent), 44.dp)
+            Box(Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(18.dp)).background(accent).clickable(onClick = onCall), Alignment.Center) {
+                Glyph(G.PHONE, onAccent(accent), 56.dp)
             }
         }
     }

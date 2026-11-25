@@ -255,4 +255,5 @@
     <string name="phone_bt_off">Il Bluetooth non è connesso</string>
     <string name="phone_number">Numero</string>
     <string name="phone_syncing">Sincronizzazione…</string>
+    <string name="phone_bt_settings">Impostazioni Bluetooth</string>
 </resources>

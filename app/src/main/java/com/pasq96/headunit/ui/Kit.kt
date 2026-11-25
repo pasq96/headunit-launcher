@@ -65,7 +65,7 @@ fun Txt(
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
 enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT, CHEV_L, CHEV_R,
-    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV, PHONE, BACKSPACE }
+    INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV, PHONE, BACKSPACE, PERSON, HEART }
 
 @Composable
 fun Glyph(g: G, color: Color, size: Dp = 32.dp) = Canvas(Modifier.size(size)) { drawGlyph(g, color) }
@@ -180,15 +180,24 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             drawCircle(c, w * 0.07f, c0)
         }
         G.PHONE -> {
-            // handset: a thick arc with the two pieces pointing in towards its centre
-            val cx = w * 0.82f; val cy = h * 0.18f; val r = w * 0.62f
-            drawArc(c, 100f, 70f, false, Offset(cx - r, cy - r), Size(r * 2, r * 2), style = Stroke(sw * 2.4f, cap = StrokeCap.Round))
-            for (a in listOf(170.0, 100.0)) {
-                val ex = cx + cos(Math.toRadians(a)).toFloat() * r; val ey = cy + sin(Math.toRadians(a)).toFloat() * r
-                val dx = cx - ex; val dy = cy - ey; val l = kotlin.math.sqrt(dx * dx + dy * dy)
-                drawLine(c, Offset(ex, ey), Offset(ex + dx / l * w * 0.2f, ey + dy / l * w * 0.2f), sw * 3.4f, StrokeCap.Round)
-            }
+            // Material "call" handset, 24-unit grid
+            val hs = androidx.compose.ui.graphics.vector.PathParser().parsePathString(
+                "M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z",
+            ).toPath()
+            androidx.compose.ui.graphics.drawscope.scale(w / 24f, pivot = Offset.Zero) { drawPath(hs, c) }
         }
+        G.PERSON -> {
+            drawCircle(c, w * 0.2f, Offset(w * 0.5f, h * 0.32f))
+            drawPath(Path().apply { moveTo(w * 0.12f, h * 0.88f); cubicTo(w * 0.12f, h * 0.56f, w * 0.88f, h * 0.56f, w * 0.88f, h * 0.88f); close() }, c)
+        }
+        G.HEART -> drawPath(Path().apply {
+            moveTo(w * 0.5f, h * 0.86f)
+            cubicTo(w * 0.04f, h * 0.52f, w * 0.1f, h * 0.12f, w * 0.3f, h * 0.14f)
+            cubicTo(w * 0.42f, h * 0.15f, w * 0.48f, h * 0.24f, w * 0.5f, h * 0.3f)
+            cubicTo(w * 0.52f, h * 0.24f, w * 0.58f, h * 0.15f, w * 0.7f, h * 0.14f)
+            cubicTo(w * 0.9f, h * 0.12f, w * 0.96f, h * 0.52f, w * 0.5f, h * 0.86f)
+            close()
+        }, c)
         G.BACKSPACE -> {
             drawPath(Path().apply { moveTo(w * 0.34f, h * 0.22f); lineTo(w * 0.88f, h * 0.22f); lineTo(w * 0.88f, h * 0.78f); lineTo(w * 0.34f, h * 0.78f); lineTo(w * 0.1f, h * 0.5f); close() }, c, style = Stroke(sw, cap = StrokeCap.Round, join = StrokeJoin.Round))
             drawLine(c, Offset(w * 0.5f, h * 0.38f), Offset(w * 0.72f, h * 0.62f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.72f, h * 0.38f), Offset(w * 0.5f, h * 0.62f), sw, StrokeCap.Round)

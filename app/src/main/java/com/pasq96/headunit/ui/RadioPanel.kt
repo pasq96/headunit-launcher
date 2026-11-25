@@ -125,13 +125,13 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             }
         }
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.previousStation() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
             if (tune) {
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Txt("−$label", 20, bold = true) }
                 RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Txt("+$label", 20, bold = true) }
             }
-            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.nextStation() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
+            RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
     }
 }

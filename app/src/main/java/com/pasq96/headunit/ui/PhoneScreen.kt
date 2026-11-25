@@ -13,6 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +44,7 @@ import java.util.Date
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private enum class PhoneTab(val label: Int) { KEYPAD(R.string.phone_keypad), RECENTS(R.string.phone_recents), CONTACTS(R.string.phone_contacts) }
+private enum class PhoneTab(val label: Int) { KEYPAD(R.string.phone_keypad), CONTACTS(R.string.phone_contacts), RECENTS(R.string.phone_recents), FAVORITES(R.string.phone_favorites) }
 
 /** Bluetooth phone: keypad, call log and contacts (PBAP sync) in one full-screen app; calls ride on HFP through Telecom. */
 @Composable
@@ -47,7 +52,8 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
     val ctx = LocalContext.current
     var tab by remember { mutableStateOf(PhoneTab.KEYPAD) }
     var number by remember { mutableStateOf("") }
-    var starredOnly by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val bt = remember(tab) { PhoneData.hfpConnected() }
     var contacts by remember { mutableStateOf<List<Contact>>(emptyList()) }
     var recents by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
     val ok = remember(vm.phoneTick) { PhoneData.granted(ctx) }
@@ -57,15 +63,23 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
     }
     val call = { n: String -> if (n.isNotBlank()) failed = !PhoneData.dial(ctx, n.trim()) }
 
-    NativeFrame(vm, str(R.string.app_phone), actions = {
-        PhoneTab.entries.forEach { t -> Chip(str(t.label), tab == t, accent) { tab = t } }
-    }) {
+    NativeFrame(vm, str(R.string.app_phone)) {
+      Row(Modifier.fillMaxSize().padding(top = 8.dp), Arrangement.spacedBy(20.dp)) {
+        Column(Modifier.width(170.dp).fillMaxHeight(), Arrangement.spacedBy(8.dp)) {
+            PhoneTab.entries.forEach { t ->
+                Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(if (tab == t) accent else Surface2).clickable { tab = t }, Alignment.Center) {
+                    Txt(str(t.label), 17, if (tab == t) onAccent(accent) else TextHi, bold = tab == t)
+                }
+            }
+            Txt(str(if (bt) R.string.phone_bt_on else R.string.phone_bt_off), 13, if (bt) accent else Warn, maxLines = 2, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+        }
+        Column(Modifier.weight(1f).fillMaxHeight()) {
         if (!ok) {
             Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                 Txt(str(R.string.phone_need_perm), 17, TextLo, align = TextAlign.Center, maxLines = 3, modifier = Modifier.padding(bottom = 16.dp))
                 Chip(str(R.string.phone_grant), true, accent, icon = G.PHONE) { vm.requestPhone() }
             }
-            return@NativeFrame
+            return@Column
         }
         if (failed) Txt(str(R.string.phone_call_fail), 14, Warn, modifier = Modifier.padding(top = 6.dp))
         when (tab) {
@@ -73,19 +87,25 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
             PhoneTab.RECENTS -> if (recents.isEmpty()) Empty(str(R.string.phone_no_recents)) else LazyColumn(Modifier.fillMaxSize().padding(top = 10.dp)) {
                 items(recents) { e -> RecentRow(e, accent) { call(e.number) } }
             }
-            PhoneTab.CONTACTS -> Column(Modifier.fillMaxSize().padding(top = 10.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Chip(str(R.string.phone_favorites), starredOnly, accent) { starredOnly = !starredOnly }
-                    Txt(str(R.string.phone_count, contacts.size), 14, TextLo)
+            PhoneTab.CONTACTS, PhoneTab.FAVORITES -> Column(Modifier.fillMaxSize()) {
+                val fav = tab == PhoneTab.FAVORITES
+                if (!fav) Row(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(Surface2).padding(horizontal = 20.dp), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        if (query.isEmpty()) Txt(str(R.string.phone_search), 17, TextLo)
+                        BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = TextHi, fontSize = 17.sp), cursorBrush = SolidColor(accent), modifier = Modifier.fillMaxWidth())
+                    }
+                    if (query.isNotEmpty()) Box(Modifier.clickable { query = "" }.padding(4.dp)) { Glyph(G.CLOSE, TextLo, 22.dp) }
                 }
-                val shown = if (starredOnly) contacts.filter { it.starred } else contacts
-                if (shown.isEmpty()) Empty(str(R.string.phone_no_contacts), str(R.string.phone_sync)) {
+                val shown = contacts.filter { (!fav || it.starred) && (query.isBlank() || it.name.contains(query, true) || it.number.contains(query)) }
+                if (shown.isEmpty()) Empty(str(if (fav) R.string.phone_no_favs else R.string.phone_no_contacts), if (fav) null else str(R.string.phone_sync)) {
                     ctx.packageManager.getLaunchIntentForPackage("com.imotor.contacts")?.let { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 } else LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
                     items(shown) { c -> ContactRow(c.name, c.number, c.starred, accent) { call(c.number) } }
                 }
             }
         }
+        }
+      }
     }
 }
 

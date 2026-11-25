@@ -249,4 +249,8 @@
     <string name="phone_no_recents">No recent calls.</string>
     <string name="phone_no_contacts">No contacts: sync the phonebook from the phone (Bluetooth, PBAP).</string>
     <string name="phone_sync">Open sync</string>
+    <string name="phone_search">Search contacts</string>
+    <string name="phone_no_favs">No favorites in the phonebook.</string>
+    <string name="phone_bt_on">Bluetooth phone connected</string>
+    <string name="phone_bt_off">Bluetooth is not connected</string>
 </resources>

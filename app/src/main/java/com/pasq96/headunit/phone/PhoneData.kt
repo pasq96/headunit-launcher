@@ -19,6 +19,11 @@ object PhoneData {
 
     fun granted(ctx: Context) = PERMS.all { ContextCompat.checkSelfPermission(ctx, it) == PackageManager.PERMISSION_GRANTED }
 
+    /** HFP client (profile 16) connected to a phone. */
+    fun hfpConnected(): Boolean = runCatching {
+        @Suppress("DEPRECATION") android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.getProfileConnectionState(16) == android.bluetooth.BluetoothProfile.STATE_CONNECTED
+    }.getOrDefault(false)
+
     fun contacts(ctx: Context): List<Contact> = runCatching {
         val out = ArrayList<Contact>()
         ctx.contentResolver.query(

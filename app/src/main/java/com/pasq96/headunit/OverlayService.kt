@@ -135,23 +135,34 @@ class OverlayService : Service() {
     }
 
     /** The dock steps aside while one of the chosen apps (by default Android Auto / CarPlay / Link, which have their own bottom bar) is in front. */
+    private var fgPkg: String? = null
+
+    /** Dock visibility from the last known foreground app; also run the instant the launcher itself comes back. */
+    private fun applyDockVisibility() {
+        val p = hub.prefs.value
+        var hide = false
+        if (p.dockOverlay && p.dockHideFull && getSystemService(PowerManager::class.java).isInteractive) {
+            val cur = fgPkg
+            // any app that took the screen over from the launcher hides the dock, plus the listed ones even when the launcher is still visible
+            val fullscreen = !hub.homeVisible && cur != null && cur != packageName
+            hide = (fullscreen || cur in p.dockHideApps) && System.currentTimeMillis() > peekUntil
+        }
+        if (hide != dockHidden) { Log.i("HUDock", "fg=$fgPkg hide=$hide"); dockHidden = hide; updateDock(p) }
+    }
+
     private fun watchForeground() = scope.launch {
+        launch { snapshotFlow { hub.homeVisible }.collect { if (it) fgPkg = packageName; applyDockVisibility() } }
         val pm = getSystemService(PowerManager::class.java)
         var since = System.currentTimeMillis() - 60_000
-        var cur: String? = null
         while (isActive) {
             val p = hub.prefs.value
-            var hide = false
             if (p.dockOverlay && p.dockHideFull && pm.isInteractive) {
                 val now = System.currentTimeMillis()
-                cur = withContext(Dispatchers.IO) { Previews.resumedBetween(this@OverlayService, since, now) } ?: cur
+                fgPkg = withContext(Dispatchers.IO) { Previews.resumedBetween(this@OverlayService, since, now) } ?: fgPkg
                 since = now - 500
-                // any app that took the screen over from the launcher hides the dock, plus the listed ones even when the launcher is still visible
-                val fullscreen = !hub.homeVisible && cur != null && cur != packageName
-                hide = (fullscreen || cur in p.dockHideApps) && now > peekUntil
             }
-            if (hide != dockHidden) { Log.i("HUDock", "fg=$cur hide=$hide"); dockHidden = hide; updateDock(p) }
-            delay(1_500)
+            applyDockVisibility()
+            delay(1_000)
         }
     }
 

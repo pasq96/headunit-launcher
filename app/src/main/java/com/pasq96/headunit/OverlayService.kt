@@ -35,6 +35,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.compose.ui.graphics.Color
 import com.pasq96.headunit.data.DockPos
+import com.pasq96.headunit.data.accentArgb
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.embed.Embedder
 import com.pasq96.headunit.system.Previews

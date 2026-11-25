@@ -164,7 +164,28 @@ object CarTools {
     fun brightnessFraction(ctx: Context): Float = brightnessRange().let { ((brightness(ctx) - it.first).toFloat() / (it.last - it.first)).coerceIn(0f, 1f) }
 
     /** Sets the level as a 0..1 fraction of the panel range; false when the system did not take the value. */
+    // Firmware backlight service (com.imotor.framework.hardware.IMHardwareManager): the only path that moves the panel on this unit,
+    // the plain system setting is overridden by the policy's temporary brightness.
+    private var hw: Any? = null
+    private fun hwManager(ctx: Context): Any? = hw ?: runCatching {
+        Class.forName("com.imotor.framework.hardware.IMHardwareManager").getMethod("getInstance", Context::class.java).invoke(null, ctx.applicationContext)
+    }.onFailure { Log.w("HUScreen", "IMHardwareManager: ${it.cause ?: it}") }.getOrNull().also { hw = it }
+
+    private fun hwRange(ctx: Context): IntRange? = runCatching {
+        val m = hwManager(ctx) ?: return null
+        val r = m.javaClass.getMethod("getLcdBacklightRange").invoke(m)!!
+        val lo = r.javaClass.getMethod("min").invoke(r) as Int; val hi = r.javaClass.getMethod("max").invoke(r) as Int
+        if (hi > lo) lo..hi else null
+    }.getOrNull()
+
+    /** Sets the level as a 0..1 fraction of the panel range; false when the system did not take the value. */
     fun setBrightnessFraction(ctx: Context, f: Float): Boolean {
+        hwRange(ctx)?.let { r ->
+            val v = r.first + (f.coerceIn(0f, 1f) * (r.last - r.first)).roundToInt()
+            val ok = runCatching { val m = hwManager(ctx)!!; m.javaClass.getMethod("setLcdBacklight", Int::class.javaPrimitiveType).invoke(m, v) }
+                .onFailure { Log.w("HUScreen", "setLcdBacklight: ${it.cause ?: it}") }.isSuccess
+            if (ok) return true
+        }
         val r = brightnessRange()
         val v = r.first + (f.coerceIn(0f, 1f) * (r.last - r.first)).roundToInt()
         setBrightness(ctx, v)

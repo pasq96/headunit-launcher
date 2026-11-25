@@ -57,7 +57,6 @@ import com.pasq96.headunit.R
 import com.pasq96.headunit.radio.Band
 import java.math.BigDecimal
 import java.math.RoundingMode
-import kotlin.math.ceil
 
 /** 97500 → "97.50" (FM always shows two decimals, as the stock radio does); AM stays in kHz. */
 internal fun fmtFreq(khz: Int, unit: Boolean): String {
@@ -234,63 +233,58 @@ private fun RadioBtn(modifier: Modifier, primary: Boolean, accent: Color, onClic
 private fun TunerBar(freqKhz: Int, band: Band, stepKhz: Int, accent: Color, marks: List<Int>, onTune: (Int) -> Unit) {
     val measurer = rememberTextMeasurer()
     val (lo, hi) = if (band == Band.AM) 522 to 1710 else 87_500 to 108_000
-    val pxPerStep = with(LocalDensity.current) { 22.dp.toPx() }
     var drag by remember { mutableIntStateOf(-1) }       // frequency under the finger, -1 = not dragging
-    var shift by remember { mutableFloatStateOf(0f) }     // sub-step scroll offset in px
     val sentAt = remember { longArrayOf(0L) }
-    val freq by rememberUpdatedState(freqKhz)
     val tune by rememberUpdatedState(onTune)
     val glide by animateFloatAsState(freqKhz.toFloat(), tween(320), label = "tuner")
     val tick = TextLo
     val labelStyle = TextStyle(color = tick, fontSize = 11.sp)
+    val pad = with(LocalDensity.current) { 14.dp.toPx() }
+    val step = stepKhz.coerceAtLeast(1)
+
+    // the whole band is laid out edge to edge: the needle travels from one end to the other, tap or drag anywhere to tune
+    fun freqAt(x: Float, w: Float): Int {
+        val frac = ((x - pad) / (w - 2 * pad)).coerceIn(0f, 1f)
+        return (lo + (frac * (hi - lo) / step).roundToInt() * step).coerceIn(lo, hi)
+    }
 
     Canvas(
         Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(12.dp)).background(Surface2)
-            .pointerInput(band, stepKhz) {
+            .pointerInput(band, step) { detectTapGestures { tune(freqAt(it.x, size.width.toFloat())) } }
+            .pointerInput(band, step) {
                 detectHorizontalDragGestures(
-                    onDragStart = { if (freq > 0) { drag = freq; shift = 0f } },
-                    onDragEnd = { if (drag >= 0) tune(drag); drag = -1; shift = 0f },
-                    onDragCancel = { drag = -1; shift = 0f },
-                ) { change, dx ->
-                    if (drag < 0) return@detectHorizontalDragGestures
+                    onDragStart = { drag = freqAt(it.x, size.width.toFloat()); tune(drag); sentAt[0] = System.currentTimeMillis() },
+                    onDragEnd = { if (drag >= 0) tune(drag); drag = -1 },
+                    onDragCancel = { drag = -1 },
+                ) { change, _ ->
                     change.consume()
-                    shift -= dx
-                    val steps = (shift / pxPerStep).toInt()
-                    if (steps != 0) {
-                        shift -= steps * pxPerStep
-                        drag = (drag + steps * stepKhz).coerceIn(lo, hi)
-                        val now = System.currentTimeMillis()
-                        if (now - sentAt[0] > 200) { tune(drag); sentAt[0] = now }
-                    }
+                    drag = freqAt(change.position.x, size.width.toFloat())
+                    val now = System.currentTimeMillis()
+                    if (now - sentAt[0] > 200) { tune(drag); sentAt[0] = now }
                 }
             },
     ) {
-        val anchor = if (drag >= 0) drag else freqKhz
-        if (anchor <= 0) return@Canvas
-        // value under the needle: the finger position while dragging, the gliding frequency otherwise
-        val centre = if (drag >= 0) drag + shift / pxPerStep * stepKhz else glide
-        val cx = size.width / 2
-        val n = ceil(cx / pxPerStep).toInt() + 2
-        val mid = ((centre - anchor) / stepKhz).roundToInt()
-        fun xOf(f: Float) = cx + (f - centre) / stepKhz * pxPerStep
-        for (i in (mid - n)..(mid + n)) {
-            val f = anchor + i * stepKhz
-            if (f < lo || f > hi) continue
+        if (freqKhz <= 0) return@Canvas
+        val span = (hi - lo).toFloat()
+        fun xOf(f: Float) = pad + (f - lo) / span * (size.width - 2 * pad)
+        val majorEvery = if (band == Band.AM) 100 else 1000
+        val labelEvery = if (band == Band.AM) 200 else 2000
+        val minorEvery = if (band == Band.AM) 9 else 500
+        var f = (lo + minorEvery - 1) / minorEvery * minorEvery
+        while (f <= hi) {
             val x = xOf(f.toFloat())
-            val major = if (band == Band.AM) ((f - lo) / stepKhz) % 10 == 0 else f % 1000 == 0
+            val major = f % majorEvery == 0
             val h = if (major) size.height * 0.45f else size.height * 0.22f
             drawLine(tick, Offset(x, size.height - h), Offset(x, size.height), if (major) 3f else 2f)
-            if (major) {
-                val text = if (band == Band.AM) "$f" else "${f / 1000}"
-                val layout = measurer.measure(text, labelStyle)
+            if (f % labelEvery == 0) {
+                val layout = measurer.measure(if (band == Band.AM) "$f" else "${f / 1000}", labelStyle)
                 drawText(layout, topLeft = Offset(x - layout.size.width / 2f, 4f))
             }
+            f += minorEvery
         }
-        marks.forEach { m ->
-            val x = xOf(m.toFloat())
-            if (x in 0f..size.width) drawCircle(accent, 5f, Offset(x, size.height - 8f))
-        }
-        drawLine(accent, Offset(cx, 0f), Offset(cx, size.height), 4f)
-        drawPath(Path().apply { moveTo(cx - 8f, 0f); lineTo(cx + 8f, 0f); lineTo(cx, 12f); close() }, accent)
+        marks.forEach { m -> if (m in lo..hi) drawCircle(accent, 5f, Offset(xOf(m.toFloat()), size.height - 8f)) }
+        val nx = xOf(if (drag >= 0) drag.toFloat() else glide.coerceIn(lo.toFloat(), hi.toFloat()))
+        drawLine(accent, Offset(nx, 0f), Offset(nx, size.height), 4f)
+        drawPath(Path().apply { moveTo(nx - 8f, 0f); lineTo(nx + 8f, 0f); lineTo(nx, 12f); close() }, accent)
     }
 }

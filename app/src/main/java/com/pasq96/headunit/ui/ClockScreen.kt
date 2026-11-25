@@ -78,9 +78,9 @@ internal fun ClockScreen(vm: LauncherHub, accent: Color) {
                     Txt(full, (h.value * 0.22f).toInt(), TextHi)
                 }
             }
-            MonthCalendar(loc, accent, Modifier.weight(1f).fillMaxHeight())
+            MonthCalendar(loc, accent, Modifier.weight(1f).fillMaxHeight().padding(top = 52.dp))
         }
-        Box(Modifier.align(Alignment.TopEnd).padding(top = 18.dp, end = 22.dp)) { GlyphButton(G.CLOSE, TextHi, close) }
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 12.dp, end = 22.dp)) { GlyphButton(G.CLOSE, TextHi, close) }
     }
 }
 
@@ -122,7 +122,7 @@ private fun Half(d: String, top: Boolean, w: Dp, h: Dp, mod: Modifier = Modifier
     val shape = if (top) RoundedCornerShape(topStart = r, topEnd = r) else RoundedCornerShape(bottomStart = r, bottomEnd = r)
     val bg = if (top) Surface2 else lerp(Surface2, Color.Black, 0.14f)
     Box(mod.size(w, h / 2).clip(shape).background(bg)) {
-        Box(Modifier.requiredSize(w, h).offset(y = if (top) 0.dp else -(h / 2)), Alignment.Center) {
+        Box(Modifier.requiredSize(w, h).offset(y = if (top) h / 4 else -(h / 4)), Alignment.Center) {
             Txt(d, (h.value * 0.72f).toInt(), TextHi, bold = true)
         }
     }

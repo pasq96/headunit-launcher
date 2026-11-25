@@ -96,6 +96,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
             if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
             else Chip(if (am) "AM" else "FM", true, accent, height = 56.dp) { vm.radio.toggleBand() }
+            Box(Modifier.width(14.dp))
             Chip("ST", r.stereoOn, accent, height = 56.dp) { vm.radio.toggleStereo() }
             if (tune) {
                 Chip("LOC", r.loc, accent, height = 56.dp) { vm.radio.toggleLoc() }
@@ -107,8 +108,11 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             GlyphButton(G.CLOSE, TextHi, close)
         }
         Column(Modifier.fillMaxWidth().weight(1f), Arrangement.Center, Alignment.CenterHorizontally) {
-            Txt(fmtFreq(r.freqKhz, unit = true), 84, bold = true, align = TextAlign.Center)
-            Txt(r.ps ?: "", 32, accent, bold = true, align = TextAlign.Center)
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Txt(fmtFreq(r.freqKhz, unit = false), 104, bold = true, align = TextAlign.Center)
+                Txt(if (r.band == Band.AM) "kHz" else "MHz", 30, TextLo, bold = true, modifier = Modifier.padding(bottom = 18.dp))
+            }
+            Txt(r.ps ?: "", 34, accent, bold = true, align = TextAlign.Center)
             BasicText(
                 r.rt ?: "", Modifier.fillMaxWidth().padding(top = 6.dp).basicMarquee(iterations = Int.MAX_VALUE),
                 TextStyle(color = TextLo, fontSize = 20.sp, textAlign = TextAlign.Center), softWrap = false, maxLines = 1,
@@ -116,7 +120,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             if (!r.connected) Txt(str(R.string.radio_no_data), 14, Warn, align = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
         }
         if (tune) TunerBar(r.freqKhz, r.band, step, accent) { vm.radio.setFrequency(it) } else PositionBar(r.freqKhz, r.band, accent)
-        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(12.dp)) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekDown() }) { Glyph(G.SEEK_DOWN, TextHi, 44.dp) }
             if (tune) {
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Glyph(G.STEP_DOWN, TextHi, 40.dp) }
@@ -133,17 +137,23 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
 /** Own station memory (8 slots, DataStore): tap recalls, long press stores the tuned frequency or clears the slot. */
 @Composable
 private fun PresetColumn(vm: LauncherHub, slots: List<Int>, tuned: Int, accent: Color, modifier: Modifier) {
-    Column(modifier, Arrangement.spacedBy(6.dp)) {
-        Txt(str(R.string.radio_presets), 15, TextLo, bold = true)
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(6.dp)) {
+        Txt(str(R.string.radio_presets), 15, TextLo, bold = true, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
         slots.forEachIndexed { slot, f ->
             val on = f > 0 && f == tuned
             Box(
                 Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2)
                     .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
                 Alignment.Center,
-            ) { Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 20, if (on) onAccent(accent) else if (f > 0) TextHi else TextLo, bold = true) }
+            ) {
+                val fg = if (on) onAccent(accent) else if (f > 0) TextHi else TextLo
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Txt("${slot + 1}", 14, if (on) fg else TextLo)
+                    Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 22, fg, bold = true)
+                }
+            }
         }
-        Txt(str(R.string.radio_hint), 12, TextLo, maxLines = 2)
+        Txt(str(R.string.radio_hint), 12, TextLo, maxLines = 2, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
@@ -174,7 +184,7 @@ private fun PositionBar(freqKhz: Int, band: Band, accent: Color) {
 
 @Composable
 private fun RadioBtn(modifier: Modifier, primary: Boolean, accent: Color, onClick: () -> Unit, content: @Composable () -> Unit) =
-    Box(modifier.height(64.dp).clip(RoundedCornerShape(14.dp)).background(if (primary) accent else Surface2).clickable(onClick = onClick), Alignment.Center) { content() }
+    Box(modifier.height(72.dp).clip(RoundedCornerShape(16.dp)).background(if (primary) accent else Surface2).clickable(onClick = onClick), Alignment.Center) { content() }
 
 /**
  * Scrollable tuning ruler: drag left to go up in frequency, right to go down. The ruler follows the finger; the new

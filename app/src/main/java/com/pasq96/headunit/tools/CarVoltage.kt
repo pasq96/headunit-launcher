@@ -17,9 +17,34 @@ internal class CarVoltage(private val ctx: Context) {
 
     fun read(): Float? {
         if (!tried) connect()
-        val m = mgr ?: return null
-        return getters.mapNotNull { g -> runCatching { norm((g.invoke(m) as Number).toDouble()) }.getOrNull() }.maxOrNull()?.toFloat()
+        val fromMcu = mcuVolts()
+        val m = mgr ?: return fromMcu
+        val probed = getters.mapNotNull { g -> runCatching { norm((g.invoke(m) as Number).toDouble()) }.getOrNull() }.maxOrNull()?.toFloat()
+        return listOfNotNull(fromMcu, probed).maxOrNull()
     }
+
+    // ---- MCU service: the car power rail (android.mcu.IMcuManager#getPowerVoltage, binder "im_mcu_service") ----
+
+    private var mcu: Any? = null
+    private var mcuTried = false
+
+    private fun mcuVolts(): Float? {
+        if (!mcuTried) {
+            mcuTried = true
+            mcu = runCatching {
+                val b = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java).invoke(null, "im_mcu_service") as android.os.IBinder
+                Class.forName("android.mcu.IMcuManager\$Stub").getMethod("asInterface", android.os.IBinder::class.java).invoke(null, b)
+            }.onFailure { Log.w(TAG, "im_mcu_service: ${it.cause ?: it}") }.getOrNull()
+            mcu?.let { Log.i(TAG, "mcu methods: " + it.javaClass.methods.map { m -> "${m.name}/${m.parameterCount}" }.distinct().sorted().joinToString(",")) }
+        }
+        val m = mcu ?: return null
+        return runCatching { m.javaClass.getMethod("getPowerVoltage").invoke(m) }
+            .onSuccess { if (!mcuLogged) { mcuLogged = true; Log.i(TAG, "getPowerVoltage = $it") } }
+            .onFailure { if (!mcuLogged) { mcuLogged = true; Log.w(TAG, "getPowerVoltage: ${it.cause ?: it}") } }
+            .getOrNull()?.let { (it as? Number)?.toDouble()?.let { v -> norm(v) }?.toFloat() }
+    }
+
+    private var mcuLogged = false
 
     private fun connect() {
         tried = true

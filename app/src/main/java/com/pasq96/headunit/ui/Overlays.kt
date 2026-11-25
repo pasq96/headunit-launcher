@@ -145,6 +145,7 @@ fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     if (vm.manager) DrawerManager(vm, p, apps, accent)
     if (vm.hideManager) DockHideManager(vm, p, apps, accent)
     vm.screen?.let { NativeScreen(vm, it, accent) }
+    if (vm.clockScreen) ClockScreen(vm, accent)
 }
 
 @Composable

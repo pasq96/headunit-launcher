@@ -210,4 +210,5 @@
     <string name="bal_center">Centro</string>
     <string name="hide_stock">Nascondi app stock sostituite</string>
     <string name="hide_stock_hint">Nel drawer spariscono le app iMotor che hanno una versione integrata</string>
+    <string name="clock_today">Oggi</string>
 </resources>

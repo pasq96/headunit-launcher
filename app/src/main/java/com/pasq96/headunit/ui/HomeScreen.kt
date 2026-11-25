@@ -310,7 +310,7 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
     }
     if (vertical) {
         Column(mod.padding(vertical = 8.dp), Arrangement.spacedBy(6.dp), Alignment.CenterHorizontally) {
-            ClockBlock(p, vertical = true)
+            ClockBlock(p, vertical = true, vm)
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp), horizontalAlignment = Alignment.CenterHorizontally) { items(pinned, key = { it.pkg }) { icon(it) } }
             buttons()
         }
@@ -318,7 +318,7 @@ private fun Dock(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) 
         Row(mod.padding(horizontal = 12.dp), Arrangement.spacedBy(6.dp), Alignment.CenterVertically) {
             LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) { items(pinned, key = { it.pkg }) { icon(it) } }
             buttons()
-            ClockBlock(p, vertical = false)
+            ClockBlock(p, vertical = false, vm)
         }
     }
 }
@@ -339,7 +339,7 @@ private fun DockIcon(a: AppInfo, role: Boolean, iconDp: Int, labels: Boolean, vm
 }
 
 @Composable
-private fun ClockBlock(p: Prefs, vertical: Boolean) {
+private fun ClockBlock(p: Prefs, vertical: Boolean, vm: LauncherHub) {
     val ctx = LocalContext.current
     val time by remember(p.clock24h) { CarTools.clock(ctx, p.clock24h) }.collectAsStateWithLifecycle("")
     // time ticks every minute, which is also when the date can change
@@ -352,7 +352,7 @@ private fun ClockBlock(p: Prefs, vertical: Boolean) {
         if (p.showBt) Glyph(G.BT, if (l.bluetooth) Color(0xFF2B7FFF) else off, 20.dp)
     }
     val clock: @Composable () -> Unit = {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.clickable { vm.clockScreen = true }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Txt(time, 26, bold = true)
             if (p.showDate) Txt(date, 13, TextLo)
         }

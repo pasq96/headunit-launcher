@@ -83,6 +83,7 @@ class LauncherHub(private val app: Application) {
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
     var screen by mutableStateOf<NativeApp?>(null)
+    var clockScreen by mutableStateOf(false)         // flip clock + calendar, opened from the dock clock
     var hideManager by mutableStateOf(false)          // apps in front of which the dock hides
     var manager by mutableStateOf(false)              // drawer apps: visibility + custom order
     var colorPicker by mutableStateOf(false)         // custom accent colour dialog
@@ -184,9 +185,9 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager || screen != null
+    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager || screen != null || clockScreen
 
-    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false; screen = null }
+    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false; screen = null; clockScreen = false }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

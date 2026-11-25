@@ -16,6 +16,7 @@ internal class FrameworkRadio(private val ctx: Context) {
     private var failures = 0
 
     val ready get() = mgr != null
+    fun manager(): Any? = mgr
 
     @Synchronized
     fun connect() {
@@ -25,7 +26,11 @@ internal class FrameworkRadio(private val ctx: Context) {
                 .recoverCatching { Class.forName(n, true, FrameworkJars.loader()).getMethod("getInstance", Context::class.java).invoke(null, ctx) }
                 .onFailure { Log.w(TAG, "$n.getInstance: ${it.cause ?: it}") }.getOrNull()
         }
-        mgr?.let { m -> Log.i(TAG, "manager ${m.javaClass.name}: " + m.javaClass.methods.map { it.name }.distinct().sorted().joinToString(",")) }
+        mgr?.let { m ->
+            Log.i(TAG, "manager ${m.javaClass.name}: " + m.javaClass.methods.map { it.name }.distinct().sorted().joinToString(","))
+            Log.i(TAG, "sigs: " + m.javaClass.methods.filter { it.name in SIGS }
+                .joinToString { f -> "${f.name}(${f.parameterTypes.joinToString { it.simpleName }}):${f.returnType.simpleName}" })
+        }
     }
 
     /** Invokes [name] on the manager; true when it ran without throwing. Failures are logged (first ones only). */
@@ -55,6 +60,7 @@ internal class FrameworkRadio(private val ctx: Context) {
     private companion object {
         const val TAG = "HURadio"
         const val MAX_LOGGED = 20
+        val SIGS = setOf("getFreqList", "saveFreqToBand", "getPlayingFreq", "playNextChannel", "playPrevChannel", "play", "switchBand", "switchWaveband", "getBandTypeInfo")
         val NONE = emptyArray<Any?>()
         val CLASSES = listOf("com.imotor.framework.radio.RadioManager", "com.imotor.framework.radio.LocalRadioManager")
     }

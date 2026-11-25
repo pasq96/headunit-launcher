@@ -130,20 +130,22 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
     }
-    PresetColumn(vm, p.presets, r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight())
+    // the radio's own memory when it reports one (like the stock app), otherwise the launcher's editable slots
+    if (r.stockPresets.isNotEmpty()) PresetColumn(r.stockPresets.take(8), r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight(), str(R.string.radio_presets), null, { _, f -> vm.radio.setFrequency(f) }, {})
+    else PresetColumn(p.presets, r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight(), str(R.string.radio_presets), str(R.string.radio_hint), { slot, _ -> vm.recallPreset(slot) }, { vm.togglePreset(it) })
     }
 }
 
 /** Own station memory (8 slots, DataStore): tap recalls, long press stores the tuned frequency or clears the slot. */
 @Composable
-private fun PresetColumn(vm: LauncherHub, slots: List<Int>, tuned: Int, accent: Color, modifier: Modifier) {
+private fun PresetColumn(slots: List<Int>, tuned: Int, accent: Color, modifier: Modifier, title: String, hint: String?, onTap: (Int, Int) -> Unit, onLong: (Int) -> Unit) {
     Column(modifier.clip(RoundedCornerShape(18.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(6.dp)) {
-        Txt(str(R.string.radio_presets), 15, TextLo, bold = true, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
+        Txt(title, 15, TextLo, bold = true, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
         slots.forEachIndexed { slot, f ->
             val on = f > 0 && f == tuned
             Box(
                 Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2)
-                    .androidxCombined(onClick = { vm.recallPreset(slot) }, onLong = { vm.togglePreset(slot) }),
+                    .androidxCombined(onClick = { onTap(slot, f) }, onLong = { onLong(slot) }),
                 Alignment.Center,
             ) {
                 val fg = if (on) onAccent(accent) else if (f > 0) TextHi else TextLo
@@ -153,7 +155,7 @@ private fun PresetColumn(vm: LauncherHub, slots: List<Int>, tuned: Int, accent: 
                 }
             }
         }
-        Txt(str(R.string.radio_hint), 12, TextLo, maxLines = 2, modifier = Modifier.padding(top = 2.dp))
+        hint?.let { Txt(it, 12, TextLo, maxLines = 2, modifier = Modifier.padding(top = 2.dp)) }
     }
 }
 

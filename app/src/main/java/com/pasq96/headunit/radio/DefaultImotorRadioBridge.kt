@@ -129,6 +129,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         val f = (call0(st0, "getFreq") as? Int)?.takeIf { it > 0 } ?: return
         (call0(st0, "getBand") as? Int)?.let { bandOf(it) }
         apply(f)
+        readList()
         val st = fw.get("getRadioStatus") ?: return
         fun flag(n: String) = call0(st, n) as? Boolean
         val ps = (call0(st, "getPsName") as? String)?.trim()
@@ -136,6 +137,22 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
             copy(ta = flag("getStatusTA") ?: ta, af = flag("getStatusAF") ?: af, stereoOn = flag("getStatusST") ?: stereoOn,
                 loc = flag("getStatusFMLOC") ?: loc, stereo = flag("getStereo") ?: stereo, ps = if (ps.isNullOrEmpty()) this.ps else ps)
         }
+    }
+
+    private var listAt = 0L
+    private var listLogged = false
+
+    /** The radio's own station memory via getFreqList (no-arg or band-code arg; array, list or anything printing the numbers). */
+    private fun readList() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - listAt < LIST_MS) return
+        listAt = now
+        val m = fw.manager() ?: return
+        val g = m.javaClass.methods.firstOrNull { it.name == "getFreqList" && (it.parameterCount == 0 || (it.parameterCount == 1 && it.parameterTypes[0] == Int::class.javaPrimitiveType)) } ?: return
+        val raw = runCatching { if (g.parameterCount == 0) g.invoke(m) else g.invoke(m, code(_state.value.band)) }.getOrNull() ?: return
+        val text = when (raw) { is IntArray -> raw.joinToString(","); is Array<*> -> raw.joinToString(","); is Collection<*> -> raw.joinToString(","); else -> raw.toString() }
+        if (!listLogged) { listLogged = true; Log.i(TAG, "getFreqList -> $text") }
+        presets(Regex("\\d+").findAll(text).joinToString(",") { it.value })
     }
 
     private val getters = java.util.concurrent.ConcurrentHashMap<String, java.lang.reflect.Method?>()
@@ -224,6 +241,7 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         const val LIVE_MS = 4_000L
         const val POLL_MS = 700L
         const val IDLE_POLL_MS = 3_000L
+        const val LIST_MS = 4_000L
         val RE_STATION = Regex("RadioControl: +---> onStationChanged: StationInfo \\{freq=(\\d+), band=(\\d)")
         val RE_WORK = Regex("WorkInfo \\{workMode=\\d+, seekType=\\d+, seekStatus=(\\d)")
         val RE_LIST = Regex("FM list: \\[([^\\]]*)\\]")

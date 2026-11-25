@@ -19,6 +19,15 @@ object Previews {
         last
     }.getOrNull()
 
+    /** Last package resumed between [from] and [to] (ms), or null when nothing was resumed in that window. */
+    fun resumedBetween(ctx: Context, from: Long, to: Long): String? = runCatching {
+        val ev = (ctx.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).queryEvents(from, to)
+        val e = android.app.usage.UsageEvents.Event()
+        var last: String? = null
+        while (ev.hasNextEvent()) { ev.getNextEvent(e); if (e.eventType == 1) last = e.packageName }
+        last
+    }.getOrNull()
+
     /** Halved on decode to keep the bitmap small. */
     @Synchronized
     fun capture(ctx: Context): Bitmap? {

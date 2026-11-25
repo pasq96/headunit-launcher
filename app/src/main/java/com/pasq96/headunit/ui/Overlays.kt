@@ -143,6 +143,7 @@ fun OverlayLayer(vm: LauncherHub) = HeadUnitTheme(vm) {
     vm.picker?.let { AppPicker(vm, p, apps, it, accent) }
     if (vm.colorPicker) ColorPicker(vm, p, accent)
     if (vm.manager) DrawerManager(vm, p, apps, accent)
+    if (vm.hideManager) DockHideManager(vm, p, apps, accent)
 }
 
 @Composable
@@ -360,6 +361,35 @@ private fun DrawerManager(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                             GlyphButton(G.DOWN, TextHi, { vm.moveInOrder(a.pkg, 1) }, size = 48.dp, glyph = 28.dp)
                         }
                         GlyphButton(if (hidden) G.EYE_OFF else G.EYE, if (hidden) TextLo else accent, { vm.toggleHidden(a.pkg) }, size = 48.dp, glyph = 28.dp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---- dock auto-hide: pick the apps in front of which the dock steps aside ----
+
+@Composable
+private fun DockHideManager(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent: Color) {
+    val list = remember(apps, p.dockHideApps) { apps.sortedWith(compareByDescending<AppInfo> { it.pkg.substringBefore('/') in p.dockHideApps }.thenBy { it.label.lowercase() }) }
+    val close = { vm.hideManager = false }
+    Dim(close) {
+        Column(
+            Modifier.align(Alignment.Center).width(560.dp).fillMaxHeight(0.9f).clip(RoundedCornerShape(20.dp)).background(Surface)
+                .pointerInput(Unit) { detectTapGestures { } }.padding(20.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                Txt(str(R.string.hide_apps_title), 22, bold = true); GlyphButton(G.CLOSE, TextHi, close)
+            }
+            Txt(str(R.string.hide_apps_hint), 14, TextLo, maxLines = 2, modifier = Modifier.padding(bottom = 8.dp))
+            LazyColumn(Modifier.weight(1f)) {
+                items(list, key = { it.pkg }) { a ->
+                    val on = a.pkg.substringBefore('/') in p.dockHideApps
+                    Row(Modifier.fillMaxWidth().height(60.dp).clickable { vm.toggleDockHide(a.pkg) }, Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+                        Image(a.icon, null, Modifier.size(40.dp))
+                        Box(Modifier.weight(1f)) { Txt(a.label, 17, if (on) TextHi else TextLo) }
+                        Glyph(if (on) G.EYE_OFF else G.EYE, if (on) accent else TextLo, 28.dp)
                     }
                 }
             }
@@ -628,6 +658,8 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 {
             Section(str(R.string.sec_dock), accent, G.DOCK) {
                 ToggleRow(str(R.string.dock_overlay), p.dockOverlay, accent, hint = str(R.string.dock_overlay_hint)) { vm.set(K.dockOverlay, it) }
+                ToggleRow(str(R.string.dock_hide_full), p.dockHideFull, accent, hint = str(R.string.dock_hide_full_hint)) { vm.set(K.dockHideFull, it) }
+                if (p.dockHideFull) ChooseRow(str(R.string.dock_hide_apps), str(R.string.dock_hide_apps_count, p.dockHideApps.size), accent) { vm.hideManager = true }
                 ToggleRow(str(R.string.previews), p.previews, accent, hint = str(R.string.previews_hint)) { vm.set(K.previews, it) }
                 ToggleRow(str(R.string.embed_windows), p.embedWindows, accent, hint = str(R.string.embed_windows_hint)) { vm.set(K.embedWindows, it) }
                 ToggleRow(str(R.string.clock_24h), p.clock24h, accent) { vm.set(K.clock24, it) }

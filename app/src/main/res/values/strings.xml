@@ -189,4 +189,10 @@
     <string name="drawer_fill_hint">Griglia automatica</string>
     <string name="swap_panels_hint">Player a sinistra</string>
     <string name="led_invert_hint">LED accesi = giorno</string>
+    <string name="dock_hide_full">Dock nascosta a schermo intero</string>
+    <string name="dock_hide_full_hint">Sparisce con Android Auto, CarPlay o Link a schermo intero</string>
+    <string name="dock_hide_apps">Nascondi dock nelle app</string>
+    <string name="dock_hide_apps_count">%d app</string>
+    <string name="hide_apps_title">Dock nascosta nelle app</string>
+    <string name="hide_apps_hint">Tocca per scegliere le app in cui la dock sparisce</string>
 </resources>

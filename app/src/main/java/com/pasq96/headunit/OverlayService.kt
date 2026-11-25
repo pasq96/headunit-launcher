@@ -33,9 +33,12 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import androidx.compose.ui.graphics.Color
 import com.pasq96.headunit.data.DockPos
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.embed.Embedder
+import com.pasq96.headunit.system.Previews
+import com.pasq96.headunit.ui.DockHandle
 import com.pasq96.headunit.ui.DockLayer
 import com.pasq96.headunit.ui.ShieldTile
 import com.pasq96.headunit.ui.OverlayLayer
@@ -43,6 +46,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -80,6 +86,7 @@ class OverlayService : Service() {
         ContextCompat.registerReceiver(this, screenRx, IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_SCREEN_OFF) }, ContextCompat.RECEIVER_NOT_EXPORTED)
         scope.launch { hub.prefs.map { Triple(it.dockOverlay, it.dock, it.dockDp) }.distinctUntilChanged().collect { updateDock(hub.prefs.value) } }
         scope.launch { snapshotFlow { hub.hasOverlay() }.collect { updatePanels(it) } }
+        watchForeground()
         scope.launch { hub.prefs.map { listOf(it.embedWindows, it.panels, it.navPkg, it.mediaPkg, it.mediaMode) }.distinctUntilChanged().collect { updateShields() } }
         scope.launch { snapshotFlow { Triple(hub.homeVisible, hub.hasOverlay(), hub.navRect to hub.mediaRect) }.debounce(100).collect { updateShields() } }
     }
@@ -91,6 +98,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         runCatching { unregisterReceiver(screenRx) }
         dockView?.let { runCatching { wm.removeView(it) } }
+        handleView?.let { runCatching { wm.removeView(it) } }
         panelView?.let { runCatching { wm.removeView(it) } }
         shieldViews.values.forEach { runCatching { wm.removeView(it.first) } }; shieldViews.clear()
         dockView = null; panelView = null
@@ -100,7 +108,55 @@ class OverlayService : Service() {
         super.onDestroy()
     }
 
+    @Volatile private var dockHidden = false
+    @Volatile private var peekUntil = 0L
+    private var handleView: ComposeView? = null
+
+    /** Edge tab while the dock is hidden; tapping it shows the dock for [PEEK_MS]. */
+    private fun updateHandle(p: Prefs, show: Boolean) {
+        if (!show) { handleView?.let { runCatching { wm.removeView(it) } }; handleView = null; return }
+        val d = resources.displayMetrics.density
+        val long = (120 * d).roundToInt(); val thick = (28 * d).roundToInt()
+        val lp = when (p.dock) {
+            DockPos.BOTTOM -> params(long, thick, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
+            DockPos.LEFT -> params(thick, long, Gravity.START or Gravity.CENTER_VERTICAL)
+            DockPos.RIGHT -> params(thick, long, Gravity.END or Gravity.CENTER_VERTICAL)
+        }
+        val v = handleView
+        if (v == null) {
+            val nv = composeView { DockHandle(p.dock != DockPos.BOTTOM, Color(p.accentArgb)) { peekUntil = System.currentTimeMillis() + PEEK_MS; dockHidden = false; updateDock(hub.prefs.value) } }
+            if (runCatching { wm.addView(nv, lp) }.isSuccess) handleView = nv
+        } else runCatching { wm.updateViewLayout(v, lp) }
+    }
+
+    /** The dock steps aside while one of the chosen apps (by default Android Auto / CarPlay / Link, which have their own bottom bar) is in front. */
+    private fun watchForeground() = scope.launch {
+        val pm = getSystemService(PowerManager::class.java)
+        var since = System.currentTimeMillis() - 60_000
+        var cur: String? = null
+        while (isActive) {
+            val p = hub.prefs.value
+            var hide = false
+            if (p.dockOverlay && p.dockHideFull && pm.isInteractive) {
+                val now = System.currentTimeMillis()
+                cur = withContext(Dispatchers.IO) { Previews.resumedBetween(this@OverlayService, since, now) } ?: cur
+                since = now - 500
+                hide = cur in p.dockHideApps && now > peekUntil
+            }
+            if (hide != dockHidden) { dockHidden = hide; updateDock(p) }
+            delay(1_500)
+        }
+    }
+
     private fun updateDock(p: Prefs) {
+        if (dockHidden && p.dockOverlay) {
+            // hidden but still "owned" by the service, so the in-activity dock does not pop up behind it
+            dockView?.let { runCatching { wm.removeView(it) } }
+            dockView = null
+            updateHandle(p, true)
+            return
+        }
+        updateHandle(p, false)
         if (!p.dockOverlay) {
             dockView?.let { runCatching { wm.removeView(it) } }
             dockView = null; hub.dockInOverlay = false
@@ -197,6 +253,7 @@ class OverlayService : Service() {
     companion object {
         private const val NOTIFICATION_ID = 7
         private const val CHANNEL = "overlay"
+        private const val PEEK_MS = 6_000L
 
         /** Overlay windows only make sense with the permission and with freeform apps that would cover the launcher. */
         fun wanted(ctx: Context) = Settings.canDrawOverlays(ctx) && Embedder.freeformEnabled(ctx)

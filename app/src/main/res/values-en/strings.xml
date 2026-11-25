@@ -189,4 +189,10 @@
     <string name="drawer_fill_hint">Automatic grid</string>
     <string name="swap_panels_hint">Player on the left</string>
     <string name="led_invert_hint">LEDs on = day</string>
+    <string name="dock_hide_full">Hide dock in full-screen apps</string>
+    <string name="dock_hide_full_hint">Gone while Android Auto, CarPlay or Link is full screen</string>
+    <string name="dock_hide_apps">Hide dock in apps</string>
+    <string name="dock_hide_apps_count">%d apps</string>
+    <string name="hide_apps_title">Dock hidden in apps</string>
+    <string name="hide_apps_hint">Tap to pick the apps that hide the dock</string>
 </resources>

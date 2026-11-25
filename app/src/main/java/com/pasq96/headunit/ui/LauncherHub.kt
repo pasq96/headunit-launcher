@@ -80,6 +80,7 @@ class LauncherHub(private val app: Application) {
     var radioScreen by mutableStateOf(false)         // full radio section opened from the radio tile
     var settings by mutableStateOf(false)
     var menuApp by mutableStateOf<AppInfo?>(null)
+    var hideManager by mutableStateOf(false)          // apps in front of which the dock hides
     var manager by mutableStateOf(false)              // drawer apps: visibility + custom order
     var colorPicker by mutableStateOf(false)         // custom accent colour dialog
     var picker by mutableStateOf<PickerKind?>(null)  // app chooser (navigator / player)
@@ -138,6 +139,12 @@ class LauncherHub(private val app: Application) {
 
     fun togglePin(pkg: String) { scope.launch { store.toggleIn(K.pinned, pkg) } }
 
+    fun toggleDockHide(pkg: String) {
+        // stored as plain package names: one drawer entry per launcher activity ("pkg/Activity") all map to the same app
+        val id = pkg.substringBefore('/'); val cur = prefs.value.dockHideApps
+        set(K.dockHideApps, (if (id in cur) cur - id else cur + id).joinToString(","))
+    }
+
     fun toggleHidden(pkg: String) { scope.launch { store.toggleIn(K.hidden, pkg) } }
 
     /** Moves [pkg] inside the custom order (which first absorbs the current visible order); [delta] = null sends it to the top. */
@@ -174,9 +181,9 @@ class LauncherHub(private val app: Application) {
         Panels.MEDIA -> Panels.BOTH
     })
 
-    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager
+    fun hasOverlay() = drawer || tools || radioScreen || settings || menuApp != null || picker != null || colorPicker || manager || hideManager
 
-    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false }
+    fun closeOverlays() { drawer = false; tools = false; radioScreen = false; settings = false; menuApp = null; picker = null; colorPicker = false; manager = false; hideManager = false }
 
     /** Dark overlay on/off for the current preferences and LED state. */
     fun dimOn(p: Prefs = prefs.value, lit: Boolean? = this.lit.value) = p.dimMode == DimMode.ON || (p.dimMode == DimMode.AUTO && lit == true)

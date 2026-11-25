@@ -286,6 +286,14 @@ internal fun DockLayer(hub: LauncherHub) = HeadUnitTheme(hub) {
     Dock(hub, p, apps, Color(p.accentArgb))
 }
 
+/** Tab left on the dock edge while the dock is hidden: a tap brings it back for a few seconds. */
+@Composable
+internal fun DockHandle(vertical: Boolean, accent: Color, onTap: () -> Unit) {
+    Box(Modifier.fillMaxSize().clickable(onClick = onTap), if (vertical) Alignment.CenterStart else Alignment.BottomCenter) {
+        Box(Modifier.then(if (vertical) Modifier.size(6.dp, 88.dp) else Modifier.size(88.dp, 6.dp)).clip(RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.85f)))
+    }
+}
+
 internal fun dockSize(p: Prefs): Modifier =
     if (p.dock != DockPos.BOTTOM) Modifier.width(p.dockDp.dp).fillMaxHeight() else Modifier.height(p.dockDp.dp).fillMaxWidth()
 

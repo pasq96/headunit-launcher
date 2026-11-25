@@ -89,6 +89,8 @@ data class Prefs(
     val amStepKhz: Int = 9,
     // dock hosted in an overlay window (needs SYSTEM_ALERT_WINDOW + freeform)
     val dockOverlay: Boolean = true,
+    val dockHideFull: Boolean = true,
+    val dockHideApps: Set<String> = DOCK_HIDE_DEFAULT,   // packages in front of which the dock steps aside
 )
 
 object K {
@@ -142,6 +144,8 @@ object K {
     val fmStep = intPreferencesKey("fm_step_khz")
     val amStep = intPreferencesKey("am_step_khz")
     val dockOverlay = booleanPreferencesKey("dock_overlay")
+    val dockHideFull = booleanPreferencesKey("dock_hide_full")
+    val dockHideApps = stringPreferencesKey("dock_hide_apps")
 }
 
 class SettingsStore(private val ctx: Context) {
@@ -197,6 +201,8 @@ class SettingsStore(private val ctx: Context) {
         fmStepKhz = (p[K.fmStep] ?: 100).coerceIn(50, 200),
         amStepKhz = (p[K.amStep] ?: 9).coerceIn(5, 10),
         dockOverlay = p[K.dockOverlay] ?: true,
+        dockHideFull = p[K.dockHideFull] ?: true,
+        dockHideApps = p[K.dockHideApps]?.split(',')?.filter { it.isNotEmpty() }?.toSet() ?: DOCK_HIDE_DEFAULT,
     )
 
     suspend fun <T> set(key: Preferences.Key<T>, value: T) = ctx.store.edit { it[key] = value }
@@ -220,3 +226,6 @@ class SettingsStore(private val ctx: Context) {
 
 private inline fun <reified E : Enum<E>> String?.toEnum(default: E): E =
     enumValues<E>().firstOrNull { it.name == this } ?: default
+
+/** Phone-projection apps (Android Auto, CarPlay, Link) draw their own bottom bar. */
+val DOCK_HIDE_DEFAULT = setOf("com.imotor.phoneconnect", "com.google.android.projection.gearhead")

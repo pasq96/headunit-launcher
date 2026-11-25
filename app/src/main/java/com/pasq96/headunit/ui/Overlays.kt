@@ -87,6 +87,7 @@ import com.pasq96.headunit.data.Lang
 import com.pasq96.headunit.data.LedSource
 import com.pasq96.headunit.data.MediaMode
 import com.pasq96.headunit.data.Panels
+import com.pasq96.headunit.data.PRESET_MAX
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.data.ThemeMode
 import com.pasq96.headunit.embed.Embedder
@@ -645,6 +646,7 @@ private fun SettingsPanel(vm: LauncherHub, p: Prefs, apps: List<AppInfo>, accent
                 },
                 {
             Section(str(R.string.sec_radio), accent, G.RADIO) {
+                StepRow(str(R.string.radio_preset_count), "${p.presetCount}", accent, { vm.set(K.presetCount, (p.presetCount - 5).coerceAtLeast(5)) }, { vm.set(K.presetCount, (p.presetCount + 5).coerceAtMost(PRESET_MAX)) })
                 if (vm.radio.canTune) {
                 ToggleRow(str(R.string.swc_seek), p.swcSeek, accent) { vm.set(K.swcSeek, it) }
                 SubLabel(str(R.string.fm_step))

@@ -31,6 +31,7 @@ import com.pasq96.headunit.data.DimMode
 import com.pasq96.headunit.data.K
 import com.pasq96.headunit.data.MediaMode
 import com.pasq96.headunit.data.Panels
+import com.pasq96.headunit.data.PRESET_MAX
 import com.pasq96.headunit.data.Prefs
 import com.pasq96.headunit.data.SettingsStore
 import com.pasq96.headunit.data.ThemeMode
@@ -250,7 +251,7 @@ class LauncherHub(private val app: Application) {
         val cur = radio.state.value.freqKhz
         val list = prefs.value.presets.toMutableList()
         if (cur <= 0 || cur in list) return
-        val i = list.indexOf(0)
+        val i = list.take(prefs.value.presetCount).indexOf(0)
         if (i < 0) return
         list[i] = cur
         setPresets(list)
@@ -263,7 +264,7 @@ class LauncherHub(private val app: Application) {
 
     fun importStockPresets() {
         val s = radio.state.value.stockPresets
-        if (s.isNotEmpty()) setPresets(List(PRESET_SLOTS) { s.getOrElse(it) { 0 } })
+        if (s.isNotEmpty()) setPresets(List(PRESET_MAX) { if (it < prefs.value.presetCount) s.getOrElse(it) { 0 } else 0 })
     }
 
     /** Steering wheel NEXT/PREV while the radio panel is active: walk the saved presets, or seek when there are none. */
@@ -277,5 +278,4 @@ class LauncherHub(private val app: Application) {
         radio.setFrequency(target)
     }
 
-    companion object { const val PRESET_SLOTS = 20 }
 }

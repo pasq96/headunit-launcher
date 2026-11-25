@@ -211,4 +211,5 @@
     <string name="hide_stock">Hide replaced stock apps</string>
     <string name="hide_stock_hint">The drawer hides the iMotor apps that have a built-in version</string>
     <string name="clock_today">Today</string>
+    <string name="radio_preset_count">Saved stations</string>
 </resources>

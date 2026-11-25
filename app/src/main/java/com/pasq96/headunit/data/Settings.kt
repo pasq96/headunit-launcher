@@ -31,6 +31,8 @@ val ACCENTS = longArrayOf(0xFF3DDC84, 0xFF2B7FFF, 0xFFFFB300, 0xFFFF5252, 0xFFB3
 /** Effective accent: preset or the user-picked colour. */
 val Prefs.accentArgb: Int get() = if (accent in ACCENTS.indices) ACCENTS[accent].toInt() else accentCustom
 
+const val PRESET_MAX = 60
+
 data class Prefs(
     // layout
     val ratio: Float = 0.65f,
@@ -83,7 +85,8 @@ data class Prefs(
     val resumeOnWake: Boolean = true,
     val wakeDelaySec: Int = 2,
     // native FM radio
-    val presets: List<Int> = List(20) { 0 },   // kHz, 0 = empty slot
+    val presets: List<Int> = List(PRESET_MAX) { 0 },
+    val presetCount: Int = 20,                // saved stations shown / usable (list scrolls)   // kHz, 0 = empty slot
     val swcSeek: Boolean = false,             // steering wheel NEXT/PREV: seek instead of walking the presets
     val fmStepKhz: Int = 100,
     val amStepKhz: Int = 9,
@@ -141,6 +144,7 @@ object K {
     val resume = booleanPreferencesKey("resume_on_wake")
     val wakeDelay = intPreferencesKey("wake_delay_s")
     val presets = stringPreferencesKey("radio_presets")
+    val presetCount = intPreferencesKey("preset_count")
     val swcSeek = booleanPreferencesKey("swc_seek")
     val fmStep = intPreferencesKey("fm_step_khz")
     val amStep = intPreferencesKey("am_step_khz")
@@ -198,7 +202,8 @@ class SettingsStore(private val ctx: Context) {
         autoPlayDelaySec = (p[K.playDelay] ?: 5).coerceIn(0, 60),
         resumeOnWake = p[K.resume] ?: true,
         wakeDelaySec = (p[K.wakeDelay] ?: 2).coerceIn(0, 15),
-        presets = (p[K.presets]?.split(',')?.map { it.toIntOrNull() ?: 0 } ?: emptyList()).let { l -> List(20) { l.getOrElse(it) { 0 } } },
+        presets = (p[K.presets]?.split(',')?.map { it.toIntOrNull() ?: 0 } ?: emptyList()).let { l -> List(PRESET_MAX) { l.getOrElse(it) { 0 } } },
+        presetCount = (p[K.presetCount] ?: 20).coerceIn(5, PRESET_MAX),
         swcSeek = p[K.swcSeek] ?: false,
         fmStepKhz = (p[K.fmStep] ?: 100).coerceIn(50, 200),
         amStepKhz = (p[K.amStep] ?: 9).coerceIn(5, 10),

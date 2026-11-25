@@ -1,5 +1,10 @@
 package com.pasq96.headunit.ui
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -94,11 +99,13 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     val am = r.band == Band.AM
     val step = if (am) p.amStepKhz else p.fmStepKhz
     val close = { vm.radioScreen = false }
-    Row(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(20.dp)) {
+    var open by remember { mutableStateOf(false) }
+    val drawerW = 280.dp
+    val dx by animateDpAsState(if (open) 0.dp else -drawerW, tween(220), label = "presets")
+    Box(Modifier.fillMaxSize().background(Bg)) {
     // the radio's own memory when it reports one (like the stock app), otherwise the launcher's own list
-    val stock = r.stockPresets.take(PRESET_SHOWN)
-    if (stock.isNotEmpty()) PresetColumn(stock.mapIndexed { i, f -> i to f }, r.freqKhz, accent, Modifier.width(250.dp).fillMaxHeight(), null, { vm.radio.setFrequency(it) }, null)
-    else PresetColumn(p.presets.withIndex().filter { it.value > 0 }.map { it.index to it.value }, r.freqKhz, accent, Modifier.width(250.dp).fillMaxHeight(), { vm.saveCurrentPreset() }, { vm.radio.setFrequency(it) }, { vm.clearPreset(it) })
+    val stock = r.stockPresets.take(p.presetCount)
+    Row(Modifier.fillMaxSize().padding(start = 52.dp, top = 24.dp, end = 24.dp, bottom = 24.dp).pointerInput(open) { if (open) detectTapGestures { open = false } }, Arrangement.spacedBy(20.dp)) {
     Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
             if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
@@ -111,7 +118,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
                 Chip("TA", r.ta, accent, height = 56.dp) { vm.radio.toggleTa() }
             }
             Box(Modifier.weight(1f))
-            Chip(str(R.string.radio_open_stock), false, accent, height = 56.dp, icon = G.RADIO) { close(); vm.radio.openStockApp() }
+            GlyphButton(G.RADIO, TextHi, { close(); vm.radio.openStockApp() }, glyph = 30.dp)
             GlyphButton(G.CLOSE, TextHi, close)
         }
         Column(Modifier.fillMaxWidth().weight(1f), Arrangement.Center, Alignment.CenterHorizontally) {
@@ -136,6 +143,17 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
+    }
+    // slide-out saved stations: pull the tab (or tap it) to show, tap the radio or pull back to hide
+    Row(Modifier.align(Alignment.CenterStart).offset(x = dx).fillMaxHeight().padding(vertical = 16.dp).padding(start = 8.dp)) {
+        val list = if (stock.isNotEmpty()) stock.mapIndexed { i, f -> i to f } else p.presets.withIndex().filter { it.index < p.presetCount && it.value > 0 }.map { it.index to it.value }
+        PresetColumn(list, r.freqKhz, accent, Modifier.width(drawerW).fillMaxHeight(), if (stock.isEmpty()) ({ vm.saveCurrentPreset() }) else null, { vm.radio.setFrequency(it) }, if (stock.isEmpty()) ({ vm.clearPreset(it) }) else null)
+        Box(
+            Modifier.align(Alignment.CenterVertically).width(40.dp).height(104.dp).clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)).background(if (open) accent else Surface)
+                .clickable { open = !open }
+                .pointerInput(Unit) { detectHorizontalDragGestures { c, d -> c.consume(); if (d > 6f) open = true else if (d < -6f) open = false } },
+            Alignment.Center,
+        ) { Glyph(if (open) G.PREV else G.NEXT, if (open) onAccent(accent) else TextHi, 28.dp) }
     }
     }
 }
@@ -162,8 +180,6 @@ private fun PresetColumn(entries: List<Pair<Int, Int>>, tuned: Int, accent: Colo
         }
     }
 }
-
-private const val PRESET_SHOWN = 20
 
 /** Read-only ruler like the stock one: a tick per step across the band, the needle on the tuned frequency. */
 @Composable

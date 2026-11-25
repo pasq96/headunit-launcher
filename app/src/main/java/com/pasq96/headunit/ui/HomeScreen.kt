@@ -11,6 +11,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -305,9 +306,23 @@ internal fun DockLayer(hub: LauncherHub) = HeadUnitTheme(hub) {
 }
 
 /** Tab left on the dock edge while the dock is hidden: a tap brings it back for a few seconds. */
+private const val SWIPE_PX = 36f
+
 @Composable
-internal fun DockHandle(vertical: Boolean, accent: Color, onTap: () -> Unit) {
-    Box(Modifier.fillMaxSize().clickable(onClick = onTap), if (vertical) Alignment.CenterStart else Alignment.BottomCenter) {
+internal fun DockHandle(vertical: Boolean, accent: Color, inward: Int, onTap: () -> Unit) {
+    val reveal by rememberUpdatedState(onTap)
+    var pulled by remember { mutableFloatStateOf(0f) }
+    Box(
+        Modifier.fillMaxSize().clickable(onClick = onTap).pointerInput(vertical, inward) {
+            detectDragGestures(onDragStart = { pulled = 0f }) { c, d ->
+                c.consume()
+                val before = pulled
+                pulled += if (vertical) d.x * inward else -d.y   // towards the screen: up for a bottom dock
+                if (before < SWIPE_PX && pulled >= SWIPE_PX) reveal()
+            }
+        },
+        if (vertical) (if (inward > 0) Alignment.CenterStart else Alignment.CenterEnd) else Alignment.BottomCenter,
+    ) {
         Box(Modifier.then(if (vertical) Modifier.size(6.dp, 88.dp) else Modifier.size(88.dp, 6.dp)).clip(RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.85f)))
     }
 }

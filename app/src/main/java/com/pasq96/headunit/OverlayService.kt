@@ -114,11 +114,11 @@ class OverlayService : Service() {
     @Volatile private var peekUntil = 0L
     private var handleView: ComposeView? = null
 
-    /** Edge tab while the dock is hidden; tapping it shows the dock for [PEEK_MS]. */
+    /** Edge tab while the dock is hidden; a tap or a swipe from the edge shows the dock for [PEEK_MS]. */
     private fun updateHandle(p: Prefs, show: Boolean) {
         if (!show) { handleView?.let { runCatching { wm.removeView(it) } }; handleView = null; return }
         val d = resources.displayMetrics.density
-        val long = (120 * d).roundToInt(); val thick = (28 * d).roundToInt()
+        val long = (220 * d).roundToInt(); val thick = (36 * d).roundToInt()
         val lp = when (p.dock) {
             DockPos.BOTTOM -> params(long, thick, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL)
             DockPos.LEFT -> params(thick, long, Gravity.START or Gravity.CENTER_VERTICAL)
@@ -126,7 +126,7 @@ class OverlayService : Service() {
         }
         val v = handleView
         if (v == null) {
-            val nv = composeView { DockHandle(p.dock != DockPos.BOTTOM, Color(p.accentArgb)) { peekUntil = System.currentTimeMillis() + PEEK_MS; dockHidden = false; updateDock(hub.prefs.value) } }
+            val nv = composeView { DockHandle(p.dock != DockPos.BOTTOM, Color(p.accentArgb), if (p.dock == DockPos.RIGHT) -1 else 1) { peekUntil = System.currentTimeMillis() + PEEK_MS; dockHidden = false; updateDock(hub.prefs.value) } }
             if (runCatching { wm.addView(nv, lp) }.isSuccess) handleView = nv
         } else runCatching { wm.updateViewLayout(v, lp) }
     }
@@ -143,7 +143,9 @@ class OverlayService : Service() {
                 val now = System.currentTimeMillis()
                 cur = withContext(Dispatchers.IO) { Previews.resumedBetween(this@OverlayService, since, now) } ?: cur
                 since = now - 500
-                hide = cur in p.dockHideApps && now > peekUntil
+                // any app that took the screen over from the launcher hides the dock, plus the listed ones even when the launcher is still visible
+                val fullscreen = !hub.homeVisible && cur != null && cur != packageName
+                hide = (fullscreen || cur in p.dockHideApps) && now > peekUntil
             }
             if (hide != dockHidden) { Log.i("HUDock", "fg=$cur hide=$hide"); dockHidden = hide; updateDock(p) }
             delay(1_500)

@@ -190,7 +190,7 @@
     <string name="swap_panels_hint">Player on the left</string>
     <string name="led_invert_hint">LEDs on = day</string>
     <string name="dock_hide_full">Hide dock in full-screen apps</string>
-    <string name="dock_hide_full_hint">Gone while Android Auto, CarPlay or Link is full screen</string>
+    <string name="dock_hide_full_hint">Hidden in front of any full-screen app; swipe from the edge to bring it back</string>
     <string name="dock_hide_apps">Hide dock in apps</string>
     <string name="dock_hide_apps_count">%d apps</string>
     <string name="hide_apps_title">Dock hidden in apps</string>

@@ -253,4 +253,5 @@
     <string name="phone_no_favs">No favorites in the phonebook.</string>
     <string name="phone_bt_on">Bluetooth phone connected</string>
     <string name="phone_bt_off">Bluetooth is not connected</string>
+    <string name="phone_number">Number</string>
 </resources>

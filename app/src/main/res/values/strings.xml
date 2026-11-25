@@ -253,4 +253,5 @@
     <string name="phone_no_favs">Nessun preferito nella rubrica.</string>
     <string name="phone_bt_on">Telefono Bluetooth connesso</string>
     <string name="phone_bt_off">Il Bluetooth non è connesso</string>
+    <string name="phone_number">Numero</string>
 </resources>

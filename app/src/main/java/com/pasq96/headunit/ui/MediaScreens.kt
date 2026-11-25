@@ -108,7 +108,7 @@ private fun StorageAccess(vm: LauncherHub, accent: Color) {
     val all = remember(vm.storageTick) { android.os.Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager() }
     var tried by remember { mutableStateOf(false) }
     Column(Modifier.padding(top = 8.dp)) {
-        Row(Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip(str(R.string.perm_storage_read), false, accent) { vm.requestStorage() }
             if (all) Chip(str(R.string.perm_storage_all_on), true, accent) { }
             else Chip(str(R.string.perm_storage_all), false, accent) {

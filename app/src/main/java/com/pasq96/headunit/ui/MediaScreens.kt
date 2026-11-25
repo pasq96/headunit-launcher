@@ -115,7 +115,7 @@ private fun StorageAccess(vm: LauncherHub, accent: Color) {
                 tried = true
                 val pkg = Uri.parse("package:${ctx.packageName}")
                 val app = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (runCatching { ctx.startActivity(app) }.isFailure) runCatching { ctx.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                if (!ctx.openOutside(app)) ctx.openOutside(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
             }
         }
         // this firmware's settings screen closes at once: the adb command is the way

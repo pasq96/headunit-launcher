@@ -101,13 +101,17 @@ private val Danger: Color @Composable @ReadOnlyComposable get() = Warn
 
 // ---- system shortcuts (also the safe-mode exit) ----
 
-private fun Context.go(i: Intent): Boolean = runCatching { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
-internal fun openNotificationAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-private fun openAndroidSettings(ctx: Context) { ctx.go(Intent(Settings.ACTION_SETTINGS)) }
-private fun openDefaultApps(ctx: Context) { if (!ctx.go(Intent(Settings.ACTION_HOME_SETTINGS))) openAndroidSettings(ctx) }
-private fun openOverlayAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }
-private fun openWriteSettings(ctx: Context) { ctx.go(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }
-private fun openUsageAccess(ctx: Context) { ctx.go(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+/** Overlay windows draw above every app: close them first or the launched screen opens hidden behind them. */
+internal fun Context.openOutside(i: Intent): Boolean {
+    (applicationContext as? com.pasq96.headunit.HeadUnitApp)?.hub?.closeOverlays()
+    return runCatching { startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+}
+internal fun openNotificationAccess(ctx: Context) { ctx.openOutside(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+private fun openAndroidSettings(ctx: Context) { ctx.openOutside(Intent(Settings.ACTION_SETTINGS)) }
+private fun openDefaultApps(ctx: Context) { if (!ctx.openOutside(Intent(Settings.ACTION_HOME_SETTINGS))) openAndroidSettings(ctx) }
+private fun openOverlayAccess(ctx: Context) { ctx.openOutside(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))) }
+private fun openWriteSettings(ctx: Context) { ctx.openOutside(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}"))) }
+private fun openUsageAccess(ctx: Context) { ctx.openOutside(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
 
 @Composable
 private fun EmergencyBar(vm: LauncherHub, modifier: Modifier = Modifier) {

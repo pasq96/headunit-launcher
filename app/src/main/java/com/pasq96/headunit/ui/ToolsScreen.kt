@@ -217,7 +217,7 @@ private fun ScreenCard(vm: LauncherHub, accent: Color) {
         }
         if (!canWrite) Box(Modifier.padding(top = 8.dp)) {
             Chip(str(R.string.write_grant), false, accent, icon = G.SUN) {
-                ctx.startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                ctx.openOutside(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS, Uri.parse("package:${ctx.packageName}")))
             }
         } else {
             SimpleSlider(level, accent, { level = it; if (abs(it - applied) > 0.03f) commit(it) }, onDone = { commit(level) })

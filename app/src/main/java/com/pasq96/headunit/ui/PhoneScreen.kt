@@ -84,7 +84,7 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
             Glyph(G.BT, if (bt) accent else Warn, 28.dp)
             Box(Modifier.weight(1f)) { Txt(str(if (bt) R.string.phone_bt_on else R.string.phone_bt_off), 18, if (bt) accent else Warn, bold = true) }
             if (!bt) Chip(str(R.string.phone_bt_settings), false, accent, height = 40.dp) {
-                runCatching { ctx.startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                ctx.openOutside(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
             }
         }
         if (!ok) {
@@ -115,7 +115,7 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
                         syncing = true
                         val done = withContext(Dispatchers.IO) { PhoneData.syncPhonebook(ctx).also { delay(4000); contacts = PhoneData.contacts(ctx) } }
                         syncing = false
-                        if (!done) ctx.packageManager.getLaunchIntentForPackage("com.imotor.contacts")?.let { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                        if (!done) ctx.packageManager.getLaunchIntentForPackage("com.imotor.contacts")?.let { ctx.openOutside(it) }
                     }
                 } else LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
                     items(shown) { c -> ContactRow(c.name, c.number, c.starred, accent) { call(c.number) } }

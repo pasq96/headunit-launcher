@@ -1,5 +1,10 @@
 package com.pasq96.headunit.media
 
+import java.io.File
+import androidx.core.content.ContextCompat
+import android.os.Environment
+import android.content.pm.PackageManager
+import android.Manifest
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
@@ -40,6 +45,8 @@ data class MusicState(
     val track: Track? get() = queue.getOrNull(index)
 }
 
+val AUDIO_EXT = setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma")
+
 const val REPEAT_OFF = 0
 const val REPEAT_ALL = 1
 const val REPEAT_ONE = 2
@@ -58,25 +65,45 @@ class MusicPlayer(private val ctx: Context) {
 
     // ---- library ----
 
-    /** All audio indexed by MediaStore, internal storage and USB alike. Needs storage read access. */
+    /** All audio: MediaStore first (internal storage and USB), a file walk when it knows nothing. False without storage read access. */
     suspend fun scan(): Boolean = withContext(Dispatchers.IO) {
+        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED && !allFiles()) {
+            _library.value = emptyList(); return@withContext false
+        }
         val out = ArrayList<Track>()
-        val ok = runCatching {
-            val c = ctx.contentResolver.query(
+        runCatching {
+            ctx.contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.TITLE, MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM),
                 "${MediaStore.Audio.Media.IS_MUSIC} != 0", null, "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC",
-            )
-            c?.use {
+            )?.use {
                 while (it.moveToNext()) {
                     val artist = it.getString(2)?.takeUnless { a -> a == "<unknown>" }.orEmpty()
                     val album = it.getString(3)?.takeUnless { a -> a == "<unknown>" }.orEmpty()
                     out += Track(ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, it.getLong(0)), it.getString(1).orEmpty(), artist, album)
                 }
-            } != null
-        }.getOrDefault(false)
+            }
+        }
+        if (out.isEmpty()) walk(out)   // USB sticks are often not indexed
         _library.value = out
-        ok
+        true
+    }
+
+    private fun allFiles() = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
+
+    private fun walk(out: MutableList<Track>) {
+        val roots = listOf(Environment.getExternalStorageDirectory()) +
+            File("/storage").listFiles()?.filter { it.isDirectory && it.name != "emulated" && it.name != "self" }.orEmpty()
+        fun go(d: File, depth: Int) {
+            if (depth > 6 || out.size >= 5_000) return
+            d.listFiles()?.forEach { f ->
+                if (f.name.startsWith('.')) return@forEach
+                if (f.isDirectory) go(f, depth + 1)
+                else if (f.extension.lowercase() in AUDIO_EXT) out += Track(Uri.fromFile(f), f.nameWithoutExtension, "", f.parentFile?.name.orEmpty())
+            }
+        }
+        roots.forEach { go(it, 0) }
+        out.sortBy { it.title.lowercase() }
     }
 
     // ---- transport ----

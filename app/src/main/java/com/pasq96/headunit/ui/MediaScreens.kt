@@ -1,6 +1,8 @@
 package com.pasq96.headunit.ui
 
+import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.os.Environment
 import android.text.format.Formatter
 import androidx.compose.foundation.Image
@@ -41,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pasq96.headunit.R
+import com.pasq96.headunit.media.AUDIO_EXT
 import com.pasq96.headunit.media.REPEAT_ONE
 import com.pasq96.headunit.media.REPEAT_OFF
 import com.pasq96.headunit.media.Track
@@ -49,24 +52,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-private val Scrim = Color(0xCC000000)
-
-/** Common shell of the built-in app screens: dimmed backdrop, rounded sheet, title row with optional actions and close. */
+/** Common shell of the built-in app screens: full screen, title row with optional actions and close. */
 @Composable
 internal fun NativeFrame(vm: LauncherHub, title: String, actions: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
-    val close = { vm.screen = null }
-    Box(Modifier.fillMaxSize().background(Scrim).pointerInput(Unit) { detectTapGestures { close() } }) {
-        Column(
-            Modifier.align(Alignment.Center).fillMaxWidth(0.94f).fillMaxHeight(0.88f).clip(RoundedCornerShape(22.dp)).background(Surface)
-                .pointerInput(Unit) { detectTapGestures { } }.padding(horizontal = 20.dp, vertical = 14.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
-                Box(Modifier.weight(1f)) { Txt(title, 24, bold = true) }
-                actions()
-                GlyphButton(G.CLOSE, TextHi, close)
-            }
-            content()
+    Column(Modifier.fillMaxSize().background(Bg).pointerInput(Unit) { detectTapGestures { } }.padding(horizontal = 28.dp, vertical = 18.dp)) {
+        Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { Txt(title, 26, bold = true) }
+            actions()
+            GlyphButton(G.CLOSE, TextHi, { vm.screen = null })
         }
+        content()
     }
 }
 
@@ -106,6 +101,20 @@ private fun PlayButton(playing: Boolean, accent: Color, onClick: () -> Unit) =
         Glyph(if (playing) G.PAUSE else G.PLAY, onAccent(accent), 44.dp)
     }
 
+/** Storage access prompts: the runtime read permission, and the all-files switch in system settings. */
+@Composable
+private fun StorageAccess(vm: LauncherHub, accent: Color) {
+    val ctx = LocalContext.current
+    Row(Modifier.padding(top = 8.dp), Arrangement.spacedBy(8.dp)) {
+        Chip(str(R.string.perm_storage_read), false, accent) { vm.requestStorage() }
+        Chip(str(R.string.perm_storage_all), false, accent) {
+            val pkg = Uri.parse("package:${ctx.packageName}")
+            val app = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { ctx.startActivity(app) }.isFailure) runCatching { ctx.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+    }
+}
+
 // ---- local music: MediaStore library + the built-in player ----
 
 @Composable
@@ -141,6 +150,7 @@ internal fun MusicScreen(vm: LauncherHub, accent: Color) {
                 }
                 LaunchedEffect(scanned) { if (scanned == null) scanned = mp.scan() }
                 if (lib.isEmpty()) Txt(str(if (scanned == false) R.string.music_no_access else R.string.music_empty), 15, TextLo, maxLines = 4, modifier = Modifier.padding(6.dp))
+                if (lib.isEmpty() && scanned == false) StorageAccess(vm, accent)
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     itemsIndexed(lib, key = { _, tr -> tr.uri.toString() }) { i, tr ->
                         val on = t?.uri == tr.uri
@@ -188,7 +198,6 @@ internal fun BtMusicScreen(vm: LauncherHub, accent: Color) {
 
 // ---- file manager: internal storage + USB, audio files play in the built-in player ----
 
-private val AUDIO_EXT = setOf("mp3", "m4a", "aac", "flac", "wav", "ogg", "opus", "wma")
 private fun File.isAudio() = isFile && extension.lowercase() in AUDIO_EXT
 
 @Composable
@@ -238,7 +247,10 @@ internal fun FilesScreen(vm: LauncherHub, accent: Color) {
                     }
                 }
             }
-            if (denied) Txt(str(R.string.files_denied), 16, TextLo, maxLines = 4, align = TextAlign.Center, modifier = Modifier.align(Alignment.Center))
+            if (denied) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                Txt(str(R.string.files_denied), 16, TextLo, maxLines = 4, align = TextAlign.Center)
+                StorageAccess(vm, accent)
+            }
             else if (dir != null && entries.isEmpty()) Txt(str(R.string.files_empty), 16, TextLo, modifier = Modifier.align(Alignment.Center))
         }
         ms.track?.let { t ->

@@ -64,7 +64,7 @@ fun Txt(
 
 // ---- icons drawn on Canvas: no icon library, no font glyph dependency ----
 
-enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT,
+enum class G { GRID, GAUGE, GEAR, SPLIT, SOLO_L, SOLO_R, PLAY, PAUSE, NEXT, PREV, CLOSE, SEEK_UP, SEEK_DOWN, STEP_UP, STEP_DOWN, EQ, FOLDER, SHUFFLE, REPEAT, CHEV_L, CHEV_R,
     INFO, TRASH, STOP, DATA, REFRESH, PIN, NAV, MUSIC, THEME, GLOBE, LED, DOCK, RADIO, CLOCK, POWER, SHIELD, SUN, WARN, CHECK, SIZE, SWAP, WIFI, BT, HOTSPOT, EYE, EYE_OFF, UP, DOWN, DEV }
 
 @Composable
@@ -195,6 +195,8 @@ private fun DrawScope.drawGlyph(g: G, c: Color) {
             drawCircle(c, w * 0.11f, Offset(w * 0.5f, h * 0.5f))
             if (g == G.EYE_OFF) drawLine(c, Offset(w * 0.15f, h * 0.85f), Offset(w * 0.85f, h * 0.15f), sw * 1.2f, StrokeCap.Round)
         }
+        G.CHEV_L -> drawPath(Path().apply { moveTo(w * 0.62f, h * 0.24f); lineTo(w * 0.36f, h * 0.5f); lineTo(w * 0.62f, h * 0.76f) }, c, style = Stroke(sw * 1.4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        G.CHEV_R -> drawPath(Path().apply { moveTo(w * 0.38f, h * 0.24f); lineTo(w * 0.64f, h * 0.5f); lineTo(w * 0.38f, h * 0.76f) }, c, style = Stroke(sw * 1.4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
         G.UP -> drawPath(Path().apply { moveTo(w * 0.25f, h * 0.62f); lineTo(w * 0.5f, h * 0.36f); lineTo(w * 0.75f, h * 0.62f) }, c, style = Stroke(sw * 1.3f, cap = StrokeCap.Round))
         G.DOWN -> drawPath(Path().apply { moveTo(w * 0.25f, h * 0.38f); lineTo(w * 0.5f, h * 0.64f); lineTo(w * 0.75f, h * 0.38f) }, c, style = Stroke(sw * 1.3f, cap = StrokeCap.Round))
         G.CLOSE -> { drawLine(c, Offset(w * 0.25f, h * 0.25f), Offset(w * 0.75f, h * 0.75f), sw, StrokeCap.Round); drawLine(c, Offset(w * 0.75f, h * 0.25f), Offset(w * 0.25f, h * 0.75f), sw, StrokeCap.Round) }

@@ -1,6 +1,7 @@
 package com.pasq96.headunit.system
 
 import android.content.Context
+import android.util.Log
 import android.util.Base64
 import java.io.BufferedInputStream
 import java.io.Closeable
@@ -92,6 +93,7 @@ object InternalAdb {
     }
 
     @Volatile private var lastPort = 0
+    private const val TAG = "HUAdb"
 
     private fun prop(name: String): Int = runCatching {
         val c = Class.forName("android.os.SystemProperties")
@@ -107,8 +109,8 @@ object InternalAdb {
         var err: String? = null
         for (port in candidates()) {
             val s = Socket()
-            try { s.connect(InetSocketAddress("127.0.0.1", port), 1500); lastPort = port; return s }
-            catch (e: IOException) { err = "${port}: ${e.message}"; runCatching { s.close() } }
+            try { s.connect(InetSocketAddress("127.0.0.1", port), 1500); lastPort = port; Log.i(TAG, "connected to $port"); return s }
+            catch (e: IOException) { err = "${port}: ${e.message}"; Log.i(TAG, "port $err"); runCatching { s.close() } }
         }
         throw AdbException(Fail.CONNECT, err)
     }
@@ -135,7 +137,7 @@ object InternalAdb {
                 }
             }
         } catch (e: AdbException) { runCatching { s.close() }; throw e }
-        catch (e: SocketTimeoutException) { runCatching { s.close() }; throw AdbException(Fail.AUTH, e.message) }
+        catch (e: SocketTimeoutException) { Log.i(TAG, "no answer from adbd (TLS wireless-debugging port, or auth prompt not answered)"); runCatching { s.close() }; throw AdbException(Fail.AUTH, e.message) }
         catch (e: IOException) { runCatching { s.close() }; throw AdbException(Fail.CONNECT, e.message) }
     }
 

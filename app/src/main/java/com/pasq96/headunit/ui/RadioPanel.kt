@@ -1,12 +1,15 @@
 package com.pasq96.headunit.ui
 
+import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.core.Animatable
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.offset
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -101,13 +104,16 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     val am = r.band == Band.AM
     val step = if (am) p.amStepKhz else p.fmStepKhz
     val close = { vm.radioScreen = false }
-    var open by remember { mutableStateOf(false) }
     val drawerW = 280.dp
-    val dx by animateDpAsState(if (open) 0.dp else -drawerW, tween(220), label = "presets")
+    val drawerPx = with(LocalDensity.current) { drawerW.toPx() + 8.dp.toPx() }
+    val prog = remember { Animatable(0f) }          // 0 = hidden, 1 = shown; follows the finger while dragging
+    val scope = rememberCoroutineScope()
+    val settle = { to: Float -> scope.launch { prog.animateTo(to, tween(240)) }; Unit }
+    val open = prog.value > 0.5f
     Box(Modifier.fillMaxSize().background(Bg)) {
     // the radio's own memory when it reports one (like the stock app), otherwise the launcher's own list
     val stock = r.stockPresets.take(p.presetCount)
-    Row(Modifier.fillMaxSize().padding(start = 52.dp, top = 24.dp, end = 24.dp, bottom = 24.dp).pointerInput(open) { if (open) detectTapGestures { open = false } }, Arrangement.spacedBy(20.dp)) {
+    Row(Modifier.fillMaxSize().padding(start = 52.dp, top = 24.dp, end = 24.dp, bottom = 24.dp).pointerInput(Unit) { detectTapGestures { if (prog.value > 0.5f) settle(0f) } }, Arrangement.spacedBy(20.dp)) {
     Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
             if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
@@ -148,15 +154,21 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     }
     }
     // slide-out saved stations: pull the tab (or tap it) to show, tap the radio or pull back to hide
-    Row(Modifier.align(Alignment.CenterStart).offset(x = dx).fillMaxHeight().padding(vertical = 16.dp).padding(start = 8.dp)) {
+    Row(
+        Modifier.align(Alignment.CenterStart).offset { IntOffset((-(1f - prog.value) * drawerPx).roundToInt(), 0) }.fillMaxHeight().padding(vertical = 16.dp).padding(start = 8.dp)
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(onDragEnd = { settle(if (prog.value > 0.5f) 1f else 0f) }, onDragCancel = { settle(if (prog.value > 0.5f) 1f else 0f) }) { c, d ->
+                    c.consume(); scope.launch { prog.snapTo((prog.value + d / drawerPx).coerceIn(0f, 1f)) }
+                }
+            },
+    ) {
         val list = if (stock.isNotEmpty()) stock.mapIndexed { i, f -> i to f } else p.presets.withIndex().filter { it.index < p.presetCount && it.value > 0 }.map { it.index to it.value }
         PresetColumn(list, r.freqKhz, accent, Modifier.width(drawerW).fillMaxHeight(), if (stock.isEmpty()) ({ vm.saveCurrentPreset() }) else null, { vm.radio.setFrequency(it) }, if (stock.isEmpty()) ({ vm.clearPreset(it) }) else null)
         Box(
             Modifier.align(Alignment.CenterVertically).width(40.dp).height(104.dp).clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)).background(if (open) accent else Surface)
-                .clickable { open = !open }
-                .pointerInput(Unit) { detectHorizontalDragGestures { c, d -> c.consume(); if (d > 6f) open = true else if (d < -6f) open = false } },
+                .clickable { settle(if (prog.value > 0.5f) 0f else 1f) },
             Alignment.Center,
-        ) { Glyph(if (open) G.PREV else G.NEXT, if (open) onAccent(accent) else TextHi, 28.dp) }
+        ) { Glyph(if (open) G.CHEV_L else G.CHEV_R, if (open) onAccent(accent) else TextHi, 30.dp) }
     }
     }
 }

@@ -23,17 +23,22 @@ class AudioFx(ctx: Context) {
     private var mgr: Any? = null
     private var hw: Any? = null
     private var logged = 0
+    @Volatile private var err: String? = null
+
+    /** Last firmware call that failed (cleared by the next success), shown on the equalizer screen. */
+    fun error(): String? = err
 
     private fun manager(): Any? = mgr ?: synchronized(this) {
         mgr ?: runCatching { Class.forName(AUDIO).getMethod("getInstance", Context::class.java).invoke(null, app) }
-            .onFailure { Log.w(TAG, "IMAudioManager: ${it.cause ?: it}") }.getOrNull().also { mgr = it }
+            .onFailure { Log.w(TAG, "IMAudioManager: ${it.cause ?: it}"); err = "IMAudioManager: ${(it.cause ?: it).javaClass.simpleName} ${(it.cause ?: it).message}" }.getOrNull().also { mgr = it }
     }
 
     private fun call(name: String, vararg a: Any?): Any? {
         val o = manager() ?: return null
         return runCatching {
             o.javaClass.methods.first { it.name == name && it.parameterCount == a.size }.invoke(o, *a)
-        }.onFailure { if (logged++ < 20) Log.w(TAG, "$name: ${it.cause ?: it}") }.getOrNull()
+        }.onFailure { if (logged++ < 20) Log.w(TAG, "$name: ${it.cause ?: it}"); err = "$name: ${(it.cause ?: it).javaClass.simpleName} ${(it.cause ?: it).message}" }
+            .onSuccess { err = null }.getOrNull()
     }
 
     private fun ints(o: Any?): IntArray? = o as? IntArray
@@ -96,7 +101,11 @@ class AudioFx(ctx: Context) {
     /** Size of the balance field, in the firmware's own units. */
     fun balanceRect(): Pair<Int, Int> = ints(call("getBalanceRectWidthHeight"))?.takeIf { it.size >= 2 }?.let { it[0] to it[1] } ?: (100 to 100)
     fun balancePos(): Pair<Int, Int> = ints(call("getBalancePos"))?.takeIf { it.size >= 2 }?.let { it[0] to it[1] } ?: balanceRect().let { it.first / 2 to it.second / 2 }
-    fun setBalance(x: Int, y: Int) = queue("bal") { call("setBalance", x, y) }
+    fun setBalance(leftRight: Int, frontBack: Int) = queue("bal") {
+        val r = call("setBalance", leftRight, frontBack)
+        if (balLogged++ < 12) Log.i(TAG, "setBalance($leftRight, $frontBack) -> ${(r as? Array<*>)?.joinToString() ?: r}")
+    }
+    private var balLogged = 0
 
     companion object {
         const val CUSTOM = 0

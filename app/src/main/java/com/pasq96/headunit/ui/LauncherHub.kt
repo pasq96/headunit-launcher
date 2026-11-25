@@ -93,6 +93,7 @@ class LauncherHub(private val app: Application) {
     var overlayInWindow by mutableStateOf(false)   // panels hosted by the overlay service (above freeform apps)
     var dockInOverlay by mutableStateOf(false)     // dock hosted by the overlay service: the in-activity dock stays blank
     var restoreTick by mutableIntStateOf(0)        // bumped on wake: HomeScreen re-places embedded windows
+    var storageTick by mutableIntStateOf(0)        // bumped when the storage permission answer comes back
     var gpsTick by mutableIntStateOf(0)            // bumped when the location permission answer comes back
 
     init {
@@ -203,6 +204,12 @@ class LauncherHub(private val app: Application) {
     fun requestLocation() {
         closeOverlays()
         app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(MainActivity.EXTRA_REQUEST_LOCATION, true))
+    }
+
+    /** Runtime storage prompt (needs an activity), then the all-files switch is offered separately in system settings. */
+    fun requestStorage() {
+        closeOverlays()
+        app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(MainActivity.EXTRA_REQUEST_STORAGE, true))
     }
 
     class Shield(val slot: Int, val pkg: String, val rect: Rect)

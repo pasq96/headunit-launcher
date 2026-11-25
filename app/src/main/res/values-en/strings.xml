@@ -232,4 +232,6 @@
     <string name="tools_tasks">%1$d running</string>
     <string name="tools_top_na">Process list unavailable: needs the internal ADB (Grant permissions).</string>
     <string name="tools_bright_fail">The system did not apply the value.</string>
+    <string name="perm_storage_read">File read permission</string>
+    <string name="perm_storage_all">All files access</string>
 </resources>

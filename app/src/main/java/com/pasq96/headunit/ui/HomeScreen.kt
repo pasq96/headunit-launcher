@@ -1,5 +1,10 @@
 package com.pasq96.headunit.ui
 
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.foundation.Canvas
 import android.graphics.Rect
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
@@ -323,7 +328,24 @@ internal fun DockHandle(vertical: Boolean, accent: Color, inward: Int, onTap: ()
         },
         if (vertical) (if (inward > 0) Alignment.CenterStart else Alignment.CenterEnd) else Alignment.BottomCenter,
     ) {
-        Box(Modifier.then(if (vertical) Modifier.size(6.dp, 88.dp) else Modifier.size(88.dp, 6.dp)).clip(RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.85f)))
+        // slightly angled tab (trapezoid, wide side on the screen edge) with an arrow towards where the dock comes from
+        val ink = onAccent(accent)
+        Canvas(Modifier.size(if (vertical) 24.dp else 150.dp, if (vertical) 150.dp else 24.dp)) {
+            val w = size.width; val h = size.height
+            val tab = Path().apply {
+                if (vertical && inward > 0) { moveTo(0f, 0f); lineTo(w, h * 0.14f); lineTo(w, h * 0.86f); lineTo(0f, h) }
+                else if (vertical) { moveTo(w, 0f); lineTo(0f, h * 0.14f); lineTo(0f, h * 0.86f); lineTo(w, h) }
+                else { moveTo(0f, h); lineTo(w * 0.14f, 0f); lineTo(w * 0.86f, 0f); lineTo(w, h) }
+                close()
+            }
+            drawPath(tab, accent)
+            val a = Path().apply {
+                if (vertical && inward > 0) { moveTo(w * 0.35f, h * 0.43f); lineTo(w * 0.65f, h * 0.5f); lineTo(w * 0.35f, h * 0.57f) }
+                else if (vertical) { moveTo(w * 0.65f, h * 0.43f); lineTo(w * 0.35f, h * 0.5f); lineTo(w * 0.65f, h * 0.57f) }
+                else { moveTo(w * 0.45f, h * 0.7f); lineTo(w * 0.5f, h * 0.3f); lineTo(w * 0.55f, h * 0.7f) }
+            }
+            drawPath(a, ink, style = Stroke(3.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
     }
 }
 

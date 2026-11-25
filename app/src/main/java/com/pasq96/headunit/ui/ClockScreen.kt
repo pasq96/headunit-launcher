@@ -47,8 +47,6 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private val Scrim = Color(0xCC000000)
-
 /** Flip clock + big date + month calendar, opened by tapping the clock in the dock. */
 @Composable
 internal fun ClockScreen(vm: LauncherHub, accent: Color) {
@@ -64,12 +62,8 @@ internal fun ClockScreen(vm: LauncherHub, accent: Color) {
     val full = remember(now, loc) { SimpleDateFormat("d MMMM yyyy", loc).format(now) }
     val ampm = remember(now, loc) { SimpleDateFormat("a", loc).format(now) }
 
-    Box(Modifier.fillMaxSize().background(Scrim).pointerInput(Unit) { detectTapGestures { close() } }) {
-        Row(
-            Modifier.align(Alignment.Center).fillMaxWidth(0.94f).fillMaxHeight(0.88f).clip(RoundedCornerShape(22.dp)).background(Surface)
-                .pointerInput(Unit) { detectTapGestures { } }.padding(24.dp),
-            Arrangement.spacedBy(24.dp),
-        ) {
+    Box(Modifier.fillMaxSize().background(Bg).pointerInput(Unit) { detectTapGestures { } }) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 24.dp), Arrangement.spacedBy(28.dp)) {
             BoxWithConstraints(Modifier.weight(1.15f).fillMaxHeight()) {
                 val w = minOf((maxWidth - 70.dp) / 4.4f, (maxHeight * 0.44f) / 1.4f, 130.dp)
                 val h = w * 1.4f

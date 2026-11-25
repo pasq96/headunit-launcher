@@ -1,5 +1,7 @@
 package com.pasq96.headunit.ui
 
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.produceState
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -48,13 +50,10 @@ import androidx.core.content.ContextCompat
 import com.pasq96.headunit.R
 import com.pasq96.headunit.audio.AudioFx
 
-private val Scrim = Color(0xCC000000)
-
 @Composable
 internal fun EqualizerScreen(vm: LauncherHub, accent: Color) {
     val fx = vm.audio
     val ctx = LocalContext.current
-    val close = { vm.screen = null }
     val info = remember { fx.info() }
     var tab by remember { mutableIntStateOf(0) }
     var style by remember { mutableIntStateOf(fx.currentStyle()) }
@@ -85,33 +84,27 @@ internal fun EqualizerScreen(vm: LauncherHub, accent: Color) {
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Scrim).pointerInput(Unit) { detectTapGestures { close() } }) {
-        Column(
-            Modifier.align(Alignment.Center).fillMaxWidth(0.94f).fillMaxHeight(0.88f).clip(RoundedCornerShape(22.dp)).background(Surface)
-                .pointerInput(Unit) { detectTapGestures { } }.padding(horizontal = 20.dp, vertical = 14.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
-                Txt(str(R.string.app_eq), 24, bold = true, modifier = Modifier.padding(end = 10.dp))
-                Chip("EQ", tab == 0, accent, icon = G.EQ) { tab = 0 }
-                Chip(str(R.string.eq_balance), tab == 1, accent, icon = G.SPLIT) { tab = 1 }
-                Box(Modifier.weight(1f))
-                Chip(str(R.string.eq_loudness), loud, accent) { loud = !loud; fx.setLoudness(loud) }
-                if (subOk) Chip(str(R.string.eq_sub), sub, accent) { sub = !sub; fx.setSub(sub) }
-                GlyphButton(G.CLOSE, TextHi, close)
-            }
-            if (info == null) {
-                Box(Modifier.fillMaxSize(), Alignment.Center) { Txt(str(R.string.eq_unavailable), 18, TextLo, align = TextAlign.Center) }
-            } else if (tab == 0) {
-                Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
-                    info.styles.forEachIndexed { i, s ->
-                        Chip(info.titles.getOrElse(i) { "EQ $s" }, s == style, accent) { load(s, fx.select(s)) }
-                    }
-                    Chip(str(R.string.eq_reset), false, accent, icon = G.REFRESH) { fx.reset()?.let { load(AudioFx.FLAT, it) } }
+    NativeFrame(vm, str(R.string.app_eq), actions = {
+        Chip("EQ", tab == 0, accent, icon = G.EQ) { tab = 0 }
+        Chip(str(R.string.eq_balance), tab == 1, accent, icon = G.SPLIT) { tab = 1 }
+        Box(Modifier.width(18.dp))
+        Chip(str(R.string.eq_loudness), loud, accent) { loud = !loud; fx.setLoudness(loud) }
+        if (subOk) Chip(str(R.string.eq_sub), sub, accent) { sub = !sub; fx.setSub(sub) }
+    }) {
+        val fxErr by produceState<String?>(null) { while (true) { value = fx.error(); delay(500) } }
+        fxErr?.let { Txt(it, 13, Warn, maxLines = 2) }
+        if (info == null) {
+            Box(Modifier.fillMaxSize(), Alignment.Center) { Txt(str(R.string.eq_unavailable), 18, TextLo, align = TextAlign.Center) }
+        } else if (tab == 0) {
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).horizontalScroll(rememberScrollState()), Arrangement.spacedBy(8.dp)) {
+                info.styles.forEachIndexed { i, s ->
+                    Chip(info.titles.getOrElse(i) { "EQ $s" }, s == style, accent) { load(s, fx.select(s)) }
                 }
-                Bands(info.hzs, vals, info.min, info.max, accent, setBand)
-            } else {
-                BalancePad(fx, accent)
+                Chip(str(R.string.eq_reset), false, accent, icon = G.REFRESH) { fx.reset()?.let { load(AudioFx.FLAT, it) } }
             }
+            Bands(info.hzs, vals, info.min, info.max, accent, setBand)
+        } else {
+            BalancePad(fx, accent)
         }
     }
 }
@@ -192,9 +185,10 @@ private fun BalancePad(fx: AudioFx, accent: Color) {
                 .pointerInput(rw, rh) {
                     awaitEachGesture {
                         val d = awaitFirstDown()
+                        // same axes as the stock view: vertical = left/right value (first range), horizontal = front/back (second)
                         fun go(o: Offset) = apply(
-                            Math.round((o.x / size.width).coerceIn(0f, 1f) * rw),
-                            Math.round((o.y / size.height).coerceIn(0f, 1f) * rh),
+                            Math.round((o.y / size.height).coerceIn(0f, 1f) * rw),
+                            Math.round((o.x / size.width).coerceIn(0f, 1f) * rh),
                         )
                         go(d.position); d.consume()
                         do {
@@ -210,17 +204,13 @@ private fun BalancePad(fx: AudioFx, accent: Color) {
                     drawLine(g, Offset(size.width * i / 4, 0f), Offset(size.width * i / 4, size.height), 2f)
                     drawLine(g, Offset(0f, size.height * i / 4), Offset(size.width, size.height * i / 4), 2f)
                 }
-                val p = Offset(pos.first.toFloat() / rw.coerceAtLeast(1) * size.width, pos.second.toFloat() / rh.coerceAtLeast(1) * size.height)
+                val p = Offset(pos.second.toFloat() / rh.coerceAtLeast(1) * size.width, pos.first.toFloat() / rw.coerceAtLeast(1) * size.height)
                 drawLine(accent.copy(alpha = 0.45f), Offset(p.x, 0f), Offset(p.x, size.height), 3f)
                 drawLine(accent.copy(alpha = 0.45f), Offset(0f, p.y), Offset(size.width, p.y), 3f)
                 drawCircle(accent.copy(alpha = 0.25f), 46f, p)
                 drawCircle(accent, 24f, p)
                 drawCircle(Color.White.copy(alpha = 0.9f), 8f, p)
             }
-            Txt("L", 20, TextLo, bold = true, modifier = Modifier.align(Alignment.CenterStart).padding(start = 14.dp))
-            Txt("R", 20, TextLo, bold = true, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 14.dp))
-            Txt("F", 20, TextLo, bold = true, modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp))
-            Txt("B", 20, TextLo, bold = true, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
         }
         Column(Modifier.width(180.dp).fillMaxHeight(), Arrangement.Center, Alignment.CenterHorizontally) {
             Chip(str(R.string.bal_center), false, accent, height = 52.dp, icon = G.SPLIT) { apply(rw / 2, rh / 2) }

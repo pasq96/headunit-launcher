@@ -106,7 +106,7 @@ private fun PlayButton(playing: Boolean, accent: Color, onClick: () -> Unit) =
         Glyph(if (playing) G.PAUSE else G.PLAY, onAccent(accent), 44.dp)
     }
 
-// ---- local music: MediaStore library + MediaPlayer ----
+// ---- local music: MediaStore library + the built-in player ----
 
 @Composable
 internal fun MusicScreen(vm: LauncherHub, accent: Color) {

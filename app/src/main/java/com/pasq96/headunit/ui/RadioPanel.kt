@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -92,6 +95,10 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
     val step = if (am) p.amStepKhz else p.fmStepKhz
     val close = { vm.radioScreen = false }
     Row(Modifier.fillMaxSize().background(Bg).padding(24.dp), Arrangement.spacedBy(20.dp)) {
+    // the radio's own memory when it reports one (like the stock app), otherwise the launcher's own list
+    val stock = r.stockPresets.take(PRESET_SHOWN)
+    if (stock.isNotEmpty()) PresetColumn(stock.mapIndexed { i, f -> i to f }, r.freqKhz, accent, Modifier.width(250.dp).fillMaxHeight(), null, { vm.radio.setFrequency(it) }, null)
+    else PresetColumn(p.presets.withIndex().filter { it.value > 0 }.map { it.index to it.value }, r.freqKhz, accent, Modifier.width(250.dp).fillMaxHeight(), { vm.saveCurrentPreset() }, { vm.radio.setFrequency(it) }, { vm.clearPreset(it) })
     Column(Modifier.weight(1f).fillMaxHeight(), Arrangement.spacedBy(14.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(10.dp), Alignment.CenterVertically) {
             if (tune) Band.entries.forEach { b -> Chip(b.label, r.band == b, accent, height = 56.dp) { vm.radio.setBand(b) } }
@@ -130,34 +137,33 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
     }
-    // the radio's own memory when it reports one (like the stock app), otherwise the launcher's editable slots
-    if (r.stockPresets.isNotEmpty()) PresetColumn(r.stockPresets.take(8), r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight(), str(R.string.radio_presets), null, { _, f -> vm.radio.setFrequency(f) }, {})
-    else PresetColumn(p.presets, r.freqKhz, accent, Modifier.width(210.dp).fillMaxHeight(), str(R.string.radio_presets), str(R.string.radio_hint), { slot, _ -> vm.recallPreset(slot) }, { vm.togglePreset(it) })
     }
 }
 
-/** Own station memory (8 slots, DataStore): tap recalls, long press stores the tuned frequency or clears the slot. */
+/** Saved stations as a scrollable list: tap tunes, "Save" stores the tuned frequency, the cross removes an entry. */
 @Composable
-private fun PresetColumn(slots: List<Int>, tuned: Int, accent: Color, modifier: Modifier, title: String, hint: String?, onTap: (Int, Int) -> Unit, onLong: (Int) -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(6.dp)) {
-        Txt(title, 15, TextLo, bold = true, modifier = Modifier.padding(start = 4.dp, bottom = 2.dp))
-        slots.forEachIndexed { slot, f ->
-            val on = f > 0 && f == tuned
-            Box(
-                Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Surface2)
-                    .androidxCombined(onClick = { onTap(slot, f) }, onLong = { onLong(slot) }),
-                Alignment.Center,
-            ) {
-                val fg = if (on) onAccent(accent) else if (f > 0) TextHi else TextLo
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                    Txt("${slot + 1}", 14, if (on) fg else TextLo)
-                    Txt(if (f > 0) fmtFreq(f, unit = false) else "+", 22, fg, bold = true)
+private fun PresetColumn(entries: List<Pair<Int, Int>>, tuned: Int, accent: Color, modifier: Modifier, onSave: (() -> Unit)?, onTap: (Int) -> Unit, onDelete: ((Int) -> Unit)?) {
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Surface).padding(12.dp), Arrangement.spacedBy(8.dp)) {
+        Txt(str(R.string.radio_presets), 16, TextLo, bold = true, modifier = Modifier.padding(start = 4.dp))
+        if (onSave != null) Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(14.dp)).background(accent).clickable(onClick = onSave), Alignment.Center) {
+            Txt("+ " + str(R.string.radio_save), 18, onAccent(accent), bold = true)
+        }
+        if (entries.isEmpty()) Txt(str(R.string.radio_presets_empty), 14, TextLo, maxLines = 3, modifier = Modifier.padding(4.dp))
+        LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(entries, key = { it.first }) { (slot, f) ->
+                val on = f == tuned
+                Row(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(14.dp)).background(if (on) accent else Surface2), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f).fillMaxHeight().clickable { onTap(f) }.padding(start = 16.dp), Alignment.CenterStart) {
+                        Txt(fmtFreq(f, unit = false), 26, if (on) onAccent(accent) else TextHi, bold = true)
+                    }
+                    if (onDelete != null) Box(Modifier.size(64.dp).clickable { onDelete(slot) }, Alignment.Center) { Glyph(G.CLOSE, if (on) onAccent(accent) else TextLo, 22.dp) }
                 }
             }
         }
-        hint?.let { Txt(it, 12, TextLo, maxLines = 2, modifier = Modifier.padding(top = 2.dp)) }
     }
 }
+
+private const val PRESET_SHOWN = 20
 
 /** Read-only ruler like the stock one: a tick per step across the band, the needle on the tuned frequency. */
 @Composable

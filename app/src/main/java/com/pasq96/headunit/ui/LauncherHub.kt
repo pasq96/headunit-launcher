@@ -241,6 +241,22 @@ class LauncherHub(private val app: Application) {
         setPresets(list)
     }
 
+    /** Stores the tuned frequency in the first free slot (no-op when already saved or the list is full). */
+    fun saveCurrentPreset() {
+        val cur = radio.state.value.freqKhz
+        val list = prefs.value.presets.toMutableList()
+        if (cur <= 0 || cur in list) return
+        val i = list.indexOf(0)
+        if (i < 0) return
+        list[i] = cur
+        setPresets(list)
+    }
+
+    fun clearPreset(slot: Int) {
+        val list = prefs.value.presets.toMutableList()
+        if (slot in list.indices) { list[slot] = 0; setPresets(list) }
+    }
+
     fun importStockPresets() {
         val s = radio.state.value.stockPresets
         if (s.isNotEmpty()) setPresets(List(PRESET_SLOTS) { s.getOrElse(it) { 0 } })
@@ -257,5 +273,5 @@ class LauncherHub(private val app: Application) {
         radio.setFrequency(target)
     }
 
-    companion object { const val PRESET_SLOTS = 8 }
+    companion object { const val PRESET_SLOTS = 20 }
 }

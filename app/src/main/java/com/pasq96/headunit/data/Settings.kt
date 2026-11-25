@@ -83,7 +83,7 @@ data class Prefs(
     val resumeOnWake: Boolean = true,
     val wakeDelaySec: Int = 2,
     // native FM radio
-    val presets: List<Int> = List(8) { 0 },   // kHz, 0 = empty slot
+    val presets: List<Int> = List(20) { 0 },   // kHz, 0 = empty slot
     val swcSeek: Boolean = false,             // steering wheel NEXT/PREV: seek instead of walking the presets
     val fmStepKhz: Int = 100,
     val amStepKhz: Int = 9,
@@ -196,7 +196,7 @@ class SettingsStore(private val ctx: Context) {
         autoPlayDelaySec = (p[K.playDelay] ?: 5).coerceIn(0, 60),
         resumeOnWake = p[K.resume] ?: true,
         wakeDelaySec = (p[K.wakeDelay] ?: 2).coerceIn(0, 15),
-        presets = (p[K.presets]?.split(',')?.map { it.toIntOrNull() ?: 0 } ?: emptyList()).let { l -> List(8) { l.getOrElse(it) { 0 } } },
+        presets = (p[K.presets]?.split(',')?.map { it.toIntOrNull() ?: 0 } ?: emptyList()).let { l -> List(20) { l.getOrElse(it) { 0 } } },
         swcSeek = p[K.swcSeek] ?: false,
         fmStepKhz = (p[K.fmStep] ?: 100).coerceIn(50, 200),
         amStepKhz = (p[K.amStep] ?: 9).coerceIn(5, 10),

@@ -196,4 +196,6 @@
     <string name="hide_apps_title">Dock nascosta nelle app</string>
     <string name="hide_apps_hint">Tocca per scegliere le app in cui la dock sparisce</string>
     <string name="radio_presets">Stazioni memorizzate</string>
+    <string name="radio_save">Salva stazione</string>
+    <string name="radio_presets_empty">Nessuna stazione salvata: sintonizza e tocca Salva</string>
 </resources>

@@ -196,4 +196,6 @@
     <string name="hide_apps_title">Dock hidden in apps</string>
     <string name="hide_apps_hint">Tap to pick the apps that hide the dock</string>
     <string name="radio_presets">Saved stations</string>
+    <string name="radio_save">Save station</string>
+    <string name="radio_presets_empty">No saved stations: tune and tap Save</string>
 </resources>

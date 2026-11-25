@@ -42,6 +42,8 @@ import com.pasq96.headunit.phone.PhoneData
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private enum class PhoneTab(val label: Int) { KEYPAD(R.string.phone_keypad), CONTACTS(R.string.phone_contacts), RECENTS(R.string.phone_recents), FAVORITES(R.string.phone_favorites) }
@@ -58,6 +60,8 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
     var recents by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
     val ok = remember(vm.phoneTick) { PhoneData.granted(ctx) }
     var failed by remember { mutableStateOf(false) }
+    var syncing by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(ok, tab) {
         if (ok) withContext(Dispatchers.IO) { contacts = PhoneData.contacts(ctx); recents = PhoneData.recents(ctx) }
     }
@@ -97,8 +101,13 @@ internal fun PhoneScreen(vm: LauncherHub, accent: Color) {
                     if (query.isNotEmpty()) Box(Modifier.clickable { query = "" }.padding(4.dp)) { Glyph(G.CLOSE, TextLo, 22.dp) }
                 }
                 val shown = contacts.filter { (!fav || it.starred) && (query.isBlank() || it.name.contains(query, true) || it.number.contains(query)) }
-                if (shown.isEmpty()) Empty(str(if (fav) R.string.phone_no_favs else R.string.phone_no_contacts), if (fav) null else str(R.string.phone_sync)) {
-                    ctx.packageManager.getLaunchIntentForPackage("com.imotor.contacts")?.let { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                if (shown.isEmpty()) Empty(str(if (fav) R.string.phone_no_favs else R.string.phone_no_contacts), if (fav) null else str(if (syncing) R.string.phone_syncing else R.string.phone_sync)) {
+                    if (!syncing) scope.launch {
+                        syncing = true
+                        val done = withContext(Dispatchers.IO) { PhoneData.syncPhonebook(ctx).also { delay(4000); contacts = PhoneData.contacts(ctx) } }
+                        syncing = false
+                        if (!done) ctx.packageManager.getLaunchIntentForPackage("com.imotor.contacts")?.let { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }
                 } else LazyColumn(Modifier.fillMaxSize().padding(top = 8.dp)) {
                     items(shown) { c -> ContactRow(c.name, c.number, c.starred, accent) { call(c.number) } }
                 }

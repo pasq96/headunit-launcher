@@ -248,10 +248,11 @@
     <string name="phone_call_fail">Chiamata non avviata: telefono Bluetooth connesso?</string>
     <string name="phone_no_recents">Nessuna chiamata recente.</string>
     <string name="phone_no_contacts">Nessun contatto: sincronizza la rubrica dal telefono (Bluetooth, PBAP).</string>
-    <string name="phone_sync">Apri sincronizzazione</string>
+    <string name="phone_sync">Sincronizza rubrica</string>
     <string name="phone_search">Cerca contatti</string>
     <string name="phone_no_favs">Nessun preferito nella rubrica.</string>
     <string name="phone_bt_on">Telefono Bluetooth connesso</string>
     <string name="phone_bt_off">Il Bluetooth non è connesso</string>
     <string name="phone_number">Numero</string>
+    <string name="phone_syncing">Sincronizzazione…</string>
 </resources>

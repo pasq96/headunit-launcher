@@ -24,6 +24,29 @@ object PhoneData {
         @Suppress("DEPRECATION") android.bluetooth.BluetoothAdapter.getDefaultAdapter()?.getProfileConnectionState(16) == android.bluetooth.BluetoothProfile.STATE_CONNECTED
     }.getOrDefault(false)
 
+    /**
+     * Phonebook download, as the stock contacts app does it: PBAP client proxy (profile 17) connected to the HFP device,
+     * then startDownload(1). Blocking, call off the main thread; false when no phone is connected or the stack refuses.
+     */
+    fun syncPhonebook(ctx: Context): Boolean = runCatching {
+        val ad = android.bluetooth.BluetoothAdapter.getDefaultAdapter() ?: return false
+        val got = arrayOfNulls<android.bluetooth.BluetoothProfile>(2)
+        val latch = java.util.concurrent.CountDownLatch(2)
+        fun proxy(profile: Int, slot: Int) = ad.getProfileProxy(ctx, object : android.bluetooth.BluetoothProfile.ServiceListener {
+            override fun onServiceConnected(p: Int, pr: android.bluetooth.BluetoothProfile) { got[slot] = pr; latch.countDown() }
+            override fun onServiceDisconnected(p: Int) {}
+        }, profile)
+        if (!proxy(16, 0) || !proxy(17, 1)) return false
+        if (!latch.await(4, java.util.concurrent.TimeUnit.SECONDS)) return false
+        val dev = got[0]?.connectedDevices?.firstOrNull() ?: return false
+        val pbap = got[1] ?: return false
+        pbap.javaClass.getMethod("connect", android.bluetooth.BluetoothDevice::class.java).invoke(pbap, dev)
+        Thread.sleep(1500)
+        val ok = pbap.javaClass.getMethod("startDownload", Int::class.javaPrimitiveType).invoke(pbap, 1) as? Boolean ?: false
+        got.forEachIndexed { i, pr -> pr?.let { ad.closeProfileProxy(if (i == 0) 16 else 17, it) } }
+        ok
+    }.getOrDefault(false)
+
     fun contacts(ctx: Context): List<Contact> = runCatching {
         val out = ArrayList<Contact>()
         ctx.contentResolver.query(

@@ -228,7 +228,18 @@ class DefaultImotorRadioBridge(context: Context) : ImotorRadioController {
         val ok = runCatching { ctx.startForegroundService(Intent(ACTION_SWITCH_BAND).setClassName(PKG, SERVICE)) }.isSuccess
         if (!ok) runCatching { if (!fw.ready) fw.connect(); fw.call("switchWaveband", code(Band.entries[(_state.value.band.ordinal + 1) % Band.entries.size])) }
     } }
-    override fun toggleMute() = Unit
+    /** Radio off = the firmware's setRadioMode(0) (its audio player stops, same as releaseMode); on = mode 1 and the last station again. */
+    override fun toggleMute() = run {
+        val st = _state.value
+        if (!st.muted) {
+            touch { copy(muted = true) }
+            if (!fw.call("setRadioMode", 0)) fw.call("releaseMode")
+        } else {
+            touch { copy(muted = false) }
+            fw.call("setRadioMode", 1)
+            if (st.freqKhz > 0) fw.call("play", code(st.band), if (st.band == Band.AM) st.freqKhz else st.freqKhz / 10, -1)
+        }
+    }
     override fun toggleAf() = run { fw.call("switchAf") }
     override fun toggleTa() = run { fw.call("switchTa") }
     override fun toggleStereo() = run { fw.call("switchStereo") }

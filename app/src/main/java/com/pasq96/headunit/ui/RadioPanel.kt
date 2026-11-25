@@ -147,6 +147,7 @@ internal fun RadioScreen(vm: LauncherHub, accent: Color) {
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(false, step) }) { Glyph(G.STEP_DOWN, TextHi, 40.dp) }
                 RadioBtn(Modifier.weight(1f), r.scanning, accent, { if (r.scanning) vm.radio.stopSeek() else vm.radio.autoScan() }) { Txt(if (r.scanning) "■" else "SCAN", 20, if (r.scanning) onAccent(accent) else TextHi, bold = true) }
                 RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.step(true, step) }) { Glyph(G.STEP_UP, TextHi, 40.dp) }
+                RadioBtn(Modifier.weight(1f), r.muted, accent, { vm.radio.toggleMute() }) { Glyph(if (r.muted) G.PLAY else G.STOP, if (r.muted) onAccent(accent) else TextHi, 36.dp) }
             }
             RadioBtn(Modifier.weight(1f), false, accent, { vm.radio.seekUp() }) { Glyph(G.SEEK_UP, TextHi, 44.dp) }
         }
